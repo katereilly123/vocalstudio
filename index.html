@@ -524,7 +524,8 @@ function renderDashboard(s){
     <div>
       <div class="section-label">Goals</div>
       <div class="card" style="margin-bottom:0;">
-        ${s.goals.length?s.goals.map((g,gi)=>`<div class="goal-item"><span class="goal-bullet">›</span><span style="flex:1;">${esc(g)}</span><button class="icon-btn" style="font-size:11px;padding:2px 6px;opacity:0.5;" onclick="deleteGoal(${gi})">✕</button></div>`).join(''):'<span style="color:var(--text2);font-size:13px;">No goals yet.</span>'}
+        ${s.goals.length?s.goals.map((g,gi)=>`<div class="goal-item"><input type="checkbox" style="flex-shrink:0;cursor:pointer;accent-color:var(--purple);" onchange="achieveGoal(${gi})" title="Mark as achieved"><span style="flex:1;">${esc(g)}</span><button class="icon-btn" style="font-size:11px;padding:2px 6px;opacity:0.5;" onclick="deleteGoal(${gi})">✕</button></div>`).join(''):'<span style="color:var(--text2);font-size:13px;">No goals yet.</span>'}
+        ${(s.achievedGoals||[]).length?`<div style="margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border);"><div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Achieved 🏆</div>${s.achievedGoals.map((g,gi)=>`<div class="goal-item" style="opacity:0.65;"><span style="color:var(--lime);">✓</span><span style="flex:1;text-decoration:line-through;">${esc(g)}</span><button class="icon-btn" style="font-size:11px;padding:2px 6px;opacity:0.5;" onclick="unachieveGoal(${gi})" title="Move back to active">↩</button></div>`).join('')}</div>`:''}
         <button class="add-row-btn" style="margin-top:8px;" onclick="openModal('goal')">+ Add goal</button>
       </div>
     </div>
@@ -887,6 +888,8 @@ function deleteStudent(){
 }
 
 function deleteGoal(i){ const s=getActive(); s.goals.splice(i,1); save(); renderTab(); }
+function achieveGoal(i){ const s=getActive(); if(!s) return; if(!s.achievedGoals) s.achievedGoals=[]; s.achievedGoals.push(s.goals[i]); s.goals.splice(i,1); save(); renderTab(); }
+function unachieveGoal(i){ const s=getActive(); if(!s) return; s.goals.push(s.achievedGoals[i]); s.achievedGoals.splice(i,1); save(); renderTab(); }
 function showEmailSetupHint(){ alert('To enable email sending, add your EmailJS keys in ⚙ Settings in the sidebar.\n\nFree account at emailjs.com — takes about 5 minutes to set up.'); }
 
 function buildNoteEmailBody(s, noteText, noteDate){
