@@ -483,6 +483,17 @@ function renderStudentHeader(s){
   document.getElementById('hdr-name').textContent=s.name;
   const mastered=s.exercises.filter(e=>e.status==='success').length;
   document.getElementById('hdr-sub').textContent=s.level+' · '+mastered+' exercise'+(mastered===1?'':'s')+' mastered';
+  // Edit/delete buttons
+  let actions=document.getElementById('hdr-actions');
+  if(!actions){
+    actions=document.createElement('div');
+    actions.id='hdr-actions';
+    actions.style.cssText='display:flex;gap:6px;margin-left:auto;';
+    document.getElementById('hdr-avatar').parentElement.appendChild(actions);
+  }
+  actions.innerHTML=`
+    <button class="icon-btn" onclick="openModal('editstudent')" title="Edit student">✏️</button>
+    <button class="icon-btn" onclick="deleteStudent()" title="Delete student" style="color:var(--coral);">🗑</button>`;
 }
 
 function renderTabBar(){
@@ -513,7 +524,7 @@ function renderDashboard(s){
     <div>
       <div class="section-label">Goals</div>
       <div class="card" style="margin-bottom:0;">
-        ${s.goals.length?s.goals.map(g=>`<div class="goal-item"><span class="goal-bullet">›</span><span>${esc(g)}</span></div>`).join(''):'<span style="color:var(--text2);font-size:13px;">No goals yet.</span>'}
+        ${s.goals.length?s.goals.map((g,gi)=>`<div class="goal-item"><span class="goal-bullet">›</span><span style="flex:1;">${esc(g)}</span><button class="icon-btn" style="font-size:11px;padding:2px 6px;opacity:0.5;" onclick="deleteGoal(${gi})">✕</button></div>`).join(''):'<span style="color:var(--text2);font-size:13px;">No goals yet.</span>'}
         <button class="add-row-btn" style="margin-top:8px;" onclick="openModal('goal')">+ Add goal</button>
       </div>
     </div>
@@ -866,7 +877,16 @@ Respond ONLY with raw JSON — no markdown:
   }catch(e){s.sessionNotes[i].analysis={error:'Could not parse response.'};}
   save(); renderTab();
 }
-function togglePrivate(val){ const s=getActive(); if(!s) return; s.isPrivate=val; save(); renderTab(); renderSidebar(); }
+function deleteStudent(){
+  const s=getActive(); if(!s) return;
+  if(!confirm(`Delete ${s.name} and all their data? This cannot be undone.`)) return;
+  DB.students=DB.students.filter(st=>st.id!==s.id);
+  DB.activeId=DB.students.length?DB.students[0].id:null;
+  DB.view=DB.students.length?'student':'student';
+  save(); renderSidebar(); renderPanels();
+}
+
+function deleteGoal(i){ const s=getActive(); s.goals.splice(i,1); save(); renderTab(); }
 function showEmailSetupHint(){ alert('To enable email sending, add your EmailJS keys in ⚙ Settings in the sidebar.\n\nFree account at emailjs.com — takes about 5 minutes to set up.'); }
 
 function buildNoteEmailBody(s, noteText, noteDate){
@@ -1120,13 +1140,21 @@ Recent wins: ${analyzed.flatMap(n=>n.analysis?.wins||[]).slice(0,5).join('; ')||
 let modalType=null;
 function openModal(type){
   modalType=type;
-  const titles={student:'Add student',song:'Add song',struggle:'Log struggle',exercise:'Log exercise',goal:'Add goal',libsong:'Add song to library',libexercise:'Add exercise to library'};
+  const titles={student:'Add student',editstudent:'Edit student',song:'Add song',struggle:'Log struggle',exercise:'Log exercise',goal:'Add goal',libsong:'Add song to library',libexercise:'Add exercise to library'};
   let html=`<h3>${titles[type]||type}</h3>`;
   if(type==='student'){
     html+=`<div class="field"><label>Name</label><input id="m-name" placeholder="Full name"></div>
     <div class="field"><label>Level</label><select id="m-level"><option>Beginner</option><option>Intermediate</option><option>Advanced</option><option>Professional</option></select></div>
     <div class="field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="m-private" style="width:auto;"> Private studio student</label></div>
     <div class="field"><label>Initial goals (one per line)</label><textarea id="m-goals" placeholder="Develop mix voice&#10;Extend range to C5"></textarea></div>`;
+  } else if(type==='editstudent'){
+    const s=getActive(); if(!s) return;
+    html+=`<div class="field"><label>Name</label><input id="m-name" value="${esc(s.name)}"></div>
+    <div class="field"><label>Level</label><select id="m-level"><option${s.level==='Beginner'?' selected':''}>Beginner</option><option${s.level==='Intermediate'?' selected':''}>Intermediate</option><option${s.level==='Advanced'?' selected':''}>Advanced</option><option${s.level==='Professional'?' selected':''}>Professional</option></select></div>
+    <div class="field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="m-private" style="width:auto;"${s.isPrivate?' checked':''}> Private studio student</label></div>
+    <div class="section-label" style="margin-top:4px;">Goals</div>
+    ${s.goals.map((g,gi)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="flex:1;font-size:13px;">${esc(g)}</span><button type="button" class="icon-btn" style="font-size:11px;padding:2px 7px;" onclick="deleteGoal(${gi});closeModal();openModal('editstudent');">✕</button></div>`).join('')}
+    <div class="field" style="margin-top:8px;"><label>Add goal</label><input id="m-newgoal" placeholder="New goal"></div>`;
   } else if(type==='song'){
     html+=`<div class="field"><label>Song title</label><input id="m-title" placeholder="e.g. The Climb"></div>
     <div class="field"><label>Key</label><input id="m-key" placeholder="e.g. G, Bb, C#m"></div>
@@ -1172,6 +1200,11 @@ function submitModal(){
     const isPrivate=document.getElementById('m-private')?.checked||false;
     DB.students.push({id:Date.now(),name,level:v('m-level'),colorIdx:DB.students.length,isPrivate,goals:v('m-goals').split('\n').map(g=>g.trim()).filter(Boolean),songs:[],struggles:[],exercises:[],sessionNotes:[],chatHistory:[],lessonPlan:null});
     DB.activeId=DB.students[DB.students.length-1].id; DB.activeTab='dashboard'; DB.view='student';
+  } else if(type==='editstudent'){
+    const s=getActive(); if(!s) return;
+    const name=v('m-name'); if(!name) return;
+    s.name=name; s.level=v('m-level'); s.isPrivate=document.getElementById('m-private')?.checked||false;
+    const newGoal=v('m-newgoal'); if(newGoal) s.goals.push(newGoal);
   } else if(type==='libsong'){
     DB.library.songs.push({id:uid(),title:v('m-title')||'Untitled',composer:v('m-composer'),key:v('m-key')||'?',tags:parseTags(v('m-tags')),notes:v('m-notes')});
   } else if(type==='libexercise'){
@@ -1194,7 +1227,7 @@ document.addEventListener('keydown',e=>{
 });
 
 // ── Password ──────────────────────────────────────────────
-const APP_PASSWORD = '3745';
+const APP_PASSWORD = '3745'; // ← change this to whatever you want
 function checkPassword(){
   const input=document.getElementById('lock-input').value;
   if(input===APP_PASSWORD){
