@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Studio Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f7f6f3; --bg3: #f0efe9;
+    --text: #1a1a1a; --text2: #666; --text3: #999;
+    --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.18);
+    --purple: #534AB7; --purple-light: #EEEDFE; --purple-dark: #3C3489;
+    --purple-mid: #AFA9EC; --purple-text: #26215C;
+    --green-bg: #E1F5EE; --green: #0F6E56; --green-mid: #1D9E75;
+    --coral-bg: #FAECE7; --coral: #993C1D; --coral-mid: #D85A30;
+    --amber-bg: #FAEEDA; --amber: #854F0B; --amber-mid: #EF9F27;
+    --lime-bg: #EAF3DE; --lime: #3B6D11;
+    --gray-bg: #F1EFE8; --gray: #5F5E5A;
+    --radius: 8px; --radius-lg: 12px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e; --bg2: #2c2c2e; --bg3: #3a3a3c;
+      --text: #f2f2f7; --text2: #aeaeb2; --text3: #636366;
+      --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.2);
+      --purple-light: #2a2760; --purple-text: #CCC8F0;
+      --green-bg: #0d2e22; --coral-bg: #2e1a12; --amber-bg: #2e1f08;
+      --lime-bg: #182808; --gray-bg: #2a2a2a;
+    }
+  }
+  body { font-family: var(--font); background: var(--bg3); color: var(--text); font-size: 14px; min-height: 100vh; }
+  .app { display: flex; height: 100vh; overflow: hidden; }
+
+  /* Sidebar */
+  .sidebar { width: 220px; flex-shrink: 0; background: var(--bg2); border-right: 0.5px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .sidebar-top { padding: 16px 14px 12px; border-bottom: 0.5px solid var(--border); }
+  .app-title { font-size: 15px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .sidebar-section-label { font-size: 10px; font-weight: 700; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; padding: 10px 14px 4px; }
+  .student-list { overflow-y: auto; padding: 4px 0; flex: 1; }
+  .student-item { display: flex; align-items: center; gap: 10px; padding: 8px 14px; cursor: pointer; border-left: 2px solid transparent; transition: background 0.1s; }
+  .student-item:hover { background: var(--bg); }
+  .student-item.active { background: var(--bg); border-left-color: var(--purple); }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+  .s-name { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .s-level { font-size: 11px; color: var(--text3); }
+  .private-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; background: var(--purple-light); color: var(--purple); padding: 1px 5px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
+  .add-student-btn { margin: 6px 12px 4px; padding: 8px; border: 1px dashed var(--border2); border-radius: var(--radius); background: none; color: var(--text2); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: all 0.1s; font-family: var(--font); }
+  .add-student-btn:hover { background: var(--bg); color: var(--text); }
+  .sidebar-divider { height: 0.5px; background: var(--border); margin: 8px 0; }
+  .library-btn { display: flex; align-items: center; gap: 8px; padding: 9px 14px; cursor: pointer; border-left: 2px solid transparent; font-size: 13px; color: var(--text2); transition: background 0.1s; }
+  .library-btn:hover { background: var(--bg); color: var(--text); }
+  .library-btn.active { background: var(--bg); border-left-color: var(--amber-mid); color: var(--text); font-weight: 500; }
+  .settings-area { padding: 10px 12px; border-top: 0.5px solid var(--border); }
+  .api-toggle { font-size: 11px; color: var(--text3); cursor: pointer; padding: 4px 0; }
+  .api-toggle:hover { color: var(--text2); }
+  .api-input-wrap { margin-top: 6px; display: none; }
+  .api-input-wrap.open { display: block; }
+  .api-input-wrap input { width: 100%; padding: 6px 8px; font-size: 11px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg); color: var(--text); font-family: var(--font); }
+  .api-hint { font-size: 10px; color: var(--text3); margin-top: 4px; line-height: 1.4; }
+  .api-hint a { color: var(--purple); }
+  .settings-group { margin-bottom: 8px; }
+  .settings-group-title { font-size: 10px; font-weight: 700; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 5px; }
+  .private-toggle-row { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+  .private-toggle-row:last-child { border-bottom: none; }
+  .toggle-switch { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; inset: 0; background: var(--border2); border-radius: 20px; cursor: pointer; transition: 0.2s; }
+  .toggle-slider:before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: 0.2s; }
+  .toggle-switch input:checked + .toggle-slider { background: var(--purple); }
+  .toggle-switch input:checked + .toggle-slider:before { transform: translateX(16px); }
+  .send-note-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--radius); font-size: 13px; cursor: pointer; border: none; font-family: var(--font); font-weight: 500; transition: all 0.15s; }
+  .send-note-btn.ready { background: var(--purple); color: white; }
+  .send-note-btn.ready:hover { background: var(--purple-dark); }
+  .send-note-btn.disabled { background: var(--bg2); color: var(--text3); cursor: not-allowed; border: 0.5px solid var(--border); }
+  .note-send-status { font-size: 12px; margin-top: 6px; }
+  .note-send-status.ok { color: var(--green); }
+  .note-send-status.err { color: var(--coral); }
+
+  /* Main */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); min-width: 0; }
+  .main-header { padding: 14px 20px; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .avatar-lg { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; flex-shrink: 0; }
+  .hdr-name { font-size: 17px; font-weight: 600; }
+  .hdr-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  /* Tabs */
+  .tab-bar { display: flex; border-bottom: 0.5px solid var(--border); flex-shrink: 0; background: var(--bg); overflow-x: auto; }
+  .tab { padding: 10px 15px; font-size: 13px; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.1s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--purple); border-bottom-color: var(--purple); font-weight: 500; }
+  .tab-content { flex: 1; overflow-y: auto; padding: 20px; }
+
+  /* Sub-tabs (library) */
+  .subtab-bar { display: flex; gap: 2px; margin-bottom: 18px; background: var(--bg2); border-radius: var(--radius); padding: 3px; width: fit-content; }
+  .subtab { padding: 7px 16px; font-size: 13px; border-radius: 6px; cursor: pointer; color: var(--text2); transition: all 0.1s; }
+  .subtab.active { background: var(--bg); color: var(--text); font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+  /* Cards / common */
+  .section-label { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 10px; }
+  .card-title { font-size: 14px; font-weight: 500; }
+  .card-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .card-body { font-size: 13px; color: var(--text2); line-height: 1.6; }
+  .badge { font-size: 11px; padding: 2px 9px; border-radius: 20px; font-weight: 500; white-space: nowrap; }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-coral { background: var(--coral-bg); color: var(--coral); }
+  .badge-amber { background: var(--amber-bg); color: var(--amber); }
+  .badge-purple { background: var(--purple-light); color: var(--purple-dark); }
+  .badge-gray { background: var(--gray-bg); color: var(--gray); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-green { background: var(--green-mid); }
+  .dot-amber { background: var(--amber-mid); }
+  .dot-gray { background: #B4B2A9; }
+  .dot-coral { background: var(--coral-mid); }
+  .icon-btn { padding: 4px 8px; border: 0.5px solid var(--border); border-radius: var(--radius); background: none; color: var(--text2); cursor: pointer; font-size: 13px; transition: all 0.1s; }
+  .icon-btn:hover { background: var(--bg2); color: var(--text); }
+  .add-row-btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 13px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: none; color: var(--text2); font-size: 12px; cursor: pointer; transition: all 0.1s; font-family: var(--font); margin-top: 4px; }
+  .add-row-btn:hover { background: var(--bg2); color: var(--text); }
+  .goal-item { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; font-size: 13px; }
+  .goal-bullet { color: var(--purple); flex-shrink: 0; }
+  .inline-edit { border: none; background: none; color: var(--text2); font-size: 12px; font-family: var(--font); width: 100%; padding: 4px 0; resize: vertical; line-height: 1.5; }
+  .inline-edit:focus { outline: none; color: var(--text); }
+  select.status-sel { font-size: 11px; padding: 3px 6px; border-radius: 6px; border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text2); cursor: pointer; font-family: var(--font); }
+  .exercise-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 0.5px solid var(--border); }
+  .exercise-row:last-child { border-bottom: none; }
+  .ex-info { flex: 1; min-width: 0; }
+  .ex-name { font-size: 13px; font-weight: 500; }
+  .ex-detail { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text2); font-size: 14px; }
+
+  /* Hashtags */
+  .hashtag { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 12px; background: var(--purple-light); color: var(--purple-dark); font-size: 11px; margin: 2px; }
+  .hashtag.amber { background: var(--amber-bg); color: var(--amber); }
+  .hashtag-input-wrap { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  .hashtag-input { padding: 4px 8px; border: 0.5px solid var(--border2); border-radius: 12px; font-size: 12px; background: var(--bg2); color: var(--text); font-family: var(--font); width: 130px; }
+  .hashtag-input:focus { outline: none; border-color: var(--purple); }
+
+  /* AI / spinner */
+  .spinner { width: 14px; height: 14px; border: 2px solid var(--purple-mid); border-top-color: var(--purple); border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ai-box { background: var(--purple-light); border: 0.5px solid var(--purple-mid); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 14px; }
+  .ai-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .ai-title { font-size: 13px; font-weight: 600; color: var(--purple-dark); }
+  .ai-error { color: var(--coral); font-size: 13px; padding: 6px 0; }
+  .gen-btn { width: 100%; padding: 10px; border: 0.5px solid var(--purple-mid); border-radius: var(--radius); background: white; color: var(--purple); font-size: 13px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; transition: all 0.15s; font-family: var(--font); }
+  .gen-btn:hover { background: var(--purple); color: white; }
+  .add-suggestion-btn { flex-shrink: 0; padding: 3px 10px; border-radius: var(--radius); font-size: 11px; cursor: pointer; border: 0.5px solid var(--purple-mid); background: white; color: var(--purple); font-family: var(--font); transition: all 0.1s; white-space: nowrap; }
+  .add-suggestion-btn:hover { background: var(--purple); color: white; }
+  .suggestion-row { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; }
+  .suggestion-text { font-size: 13px; color: var(--purple-text); flex: 1; line-height: 1.5; }
+  .analysis-section-title { font-size: 11px; font-weight: 600; color: var(--purple-dark); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 7px; margin-top: 10px; }
+  .analysis-box { background: var(--purple-light); border: 0.5px solid var(--purple-mid); border-radius: var(--radius-lg); padding: 14px 16px; margin-top: 10px; }
+
+  /* Chat */
+  .chat-wrap { display: flex; flex-direction: column; border: 0.5px solid var(--border2); border-radius: var(--radius-lg); overflow: hidden; background: var(--bg2); }
+  .chat-messages { overflow-y: auto; padding: 12px; max-height: 300px; min-height: 100px; display: flex; flex-direction: column; gap: 8px; }
+  .chat-msg { max-width: 88%; padding: 9px 12px; border-radius: 12px; font-size: 13px; line-height: 1.6; }
+  .chat-msg.user { background: var(--purple); color: white; align-self: flex-end; border-bottom-right-radius: 3px; }
+  .chat-msg.ai { background: var(--bg); border: 0.5px solid var(--border); align-self: flex-start; border-bottom-left-radius: 3px; color: var(--text); }
+  .chat-msg.thinking { color: var(--text3); font-style: italic; display: flex; align-items: center; gap: 8px; }
+  .chat-input-row { display: flex; gap: 8px; padding: 10px; border-top: 0.5px solid var(--border); background: var(--bg); }
+  .chat-input { flex: 1; padding: 8px 12px; border: 0.5px solid var(--border2); border-radius: 20px; background: var(--bg2); color: var(--text); font-size: 13px; font-family: var(--font); outline: none; }
+  .chat-input:focus { border-color: var(--purple); }
+  .chat-send-btn { padding: 8px 16px; background: var(--purple); color: white; border: none; border-radius: 20px; font-size: 13px; cursor: pointer; font-family: var(--font); white-space: nowrap; }
+  .chat-send-btn:hover { background: var(--purple-dark); }
+  .chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .chat-clear-btn { font-size: 11px; color: var(--text3); background: none; border: none; cursor: pointer; padding: 2px 6px; font-family: var(--font); }
+  .chat-clear-btn:hover { color: var(--coral); }
+
+  /* Dashboard song/goal cards */
+  .dash-song { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 0.5px solid var(--border); }
+  .dash-song:last-child { border-bottom: none; }
+  .dash-song-title { font-size: 13px; font-weight: 500; }
+  .dash-song-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+  /* Songs */
+  .related-songs-box { background: var(--lime-bg); border: 0.5px solid #97C459; border-radius: var(--radius); padding: 9px 12px; margin-top: 8px; font-size: 12px; color: var(--lime); }
+  .archive-song-card { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 8px; }
+
+  /* Notes */
+  .win-card { background: var(--lime-bg); border: 0.5px solid #97C459; border-radius: var(--radius); padding: 9px 14px; margin-bottom: 7px; font-size: 13px; color: var(--lime); }
+  .struggle-mini { background: var(--coral-bg); border: 0.5px solid #F0997B; border-radius: var(--radius); padding: 9px 14px; margin-bottom: 7px; }
+  .struggle-mini-title { font-size: 13px; font-weight: 500; color: var(--coral); }
+  .struggle-mini-detail { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .notes-paste-area { width: 100%; min-height: 110px; padding: 12px; border: 0.5px solid var(--border2); border-radius: var(--radius-lg); background: var(--bg2); color: var(--text); font-size: 13px; font-family: var(--font); line-height: 1.6; resize: vertical; }
+  .notes-paste-area:focus { outline: none; border-color: var(--purple); }
+  .note-entry { padding: 14px 0; border-bottom: 0.5px solid var(--border); }
+  .note-entry:last-child { border-bottom: none; }
+  .note-date { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
+  .note-text { font-size: 13px; color: var(--text2); line-height: 1.7; white-space: pre-wrap; }
+  .highlight-struggle { background: rgba(208,90,48,0.12); border-radius: 3px; padding: 0 2px; color: var(--coral); }
+  .highlight-win { background: rgba(59,109,17,0.1); border-radius: 3px; padding: 0 2px; color: var(--lime); }
+  .highlight-exercise { background: rgba(83,74,183,0.1); border-radius: 3px; padding: 0 2px; color: var(--purple); }
+
+  /* Lesson plan */
+  .lesson-section { margin-bottom: 16px; }
+  .lesson-section-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 7px; }
+  .lesson-item { padding: 8px 12px; background: var(--bg2); border-radius: var(--radius); margin-bottom: 6px; font-size: 13px; line-height: 1.6; border-left: 3px solid var(--purple); }
+  .lesson-item.warm { border-left-color: var(--amber-mid); }
+  .lesson-item.focus { border-left-color: var(--coral-mid); }
+  .lesson-item.song { border-left-color: var(--green-mid); }
+  .lesson-item.cool { border-left-color: var(--purple-mid); }
+  .lesson-note { font-size: 12px; color: var(--text2); margin-top: 3px; }
+
+  /* Library */
+  .lib-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 13px 15px; margin-bottom: 9px; }
+  .lib-card-title { font-size: 14px; font-weight: 500; }
+  .lib-card-meta { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .lib-card-notes { font-size: 12px; color: var(--text2); margin-top:6px; line-height:1.5; }
+  .lib-assign-btn { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: var(--radius); font-size: 11px; cursor: pointer; border: 0.5px solid var(--green-mid); background: var(--green-bg); color: var(--green); font-family: var(--font); transition: all 0.1s; white-space: nowrap; }
+  .lib-assign-btn:hover { background: var(--green-mid); color: white; }
+  .search-input { width: 100%; padding: 8px 12px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg2); color: var(--text); font-size: 13px; font-family: var(--font); margin-bottom: 14px; }
+  .search-input:focus { outline: none; border-color: var(--purple); }
+
+  /* Picker modal overlay */
+  .picker-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 300; }
+  .picker-bg.open { display: flex; }
+  .picker-modal { background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--radius-lg); padding: 20px; width: 420px; max-width: 95vw; max-height: 80vh; display: flex; flex-direction: column; }
+  .picker-modal h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+  .picker-list { flex: 1; overflow-y: auto; }
+  .picker-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+  .picker-item:last-child { border-bottom: none; }
+  .picker-item-info { flex: 1; min-width: 0; }
+  .picker-item-name { font-size: 13px; font-weight: 500; }
+  .picker-item-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+  /* Modal */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 200; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--radius-lg); padding: 22px; width: 380px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+  .modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+  .field { margin-bottom: 13px; }
+  .field label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 5px; font-weight: 500; }
+  .field input, .field select, .field textarea { width: 100%; padding: 8px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg2); color: var(--text); font-size: 13px; font-family: var(--font); }
+  .field textarea { resize: vertical; min-height: 64px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+  .btn-save { padding: 8px 18px; background: var(--purple); color: white; border: none; border-radius: var(--radius); font-size: 13px; cursor: pointer; font-family: var(--font); font-weight: 500; }
+  .btn-save:hover { background: var(--purple-dark); }
+  .btn-cancel { padding: 8px 16px; background: none; border: 0.5px solid var(--border2); border-radius: var(--radius); font-size: 13px; cursor: pointer; color: var(--text2); font-family: var(--font); }
+  #no-student { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; color: var(--text2); }
+  @media (max-width: 640px) { .sidebar { width: 180px; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-top">
+      <div class="app-title">🎤 Voice Studio</div>
+    </div>
+    <div class="sidebar-section-label">Students</div>
+    <div class="student-list" id="student-list"></div>
+    <button class="add-student-btn" onclick="openModal('student')">+ Add student</button>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section-label">Library</div>
+    <div class="library-btn" id="lib-btn" onclick="selectLibrary()">📚 Song & Exercise Library</div>
+    <div class="sidebar-divider"></div>
+    <div class="settings-area">
+      <div class="api-toggle" onclick="toggleSettings()">⚙ Settings</div>
+      <div class="api-input-wrap" id="api-wrap">
+        <div class="settings-group" style="margin-top:6px;">
+          <div class="settings-group-title">Gemini AI</div>
+          <input type="password" id="api-key-input" placeholder="Gemini API key" oninput="saveApiKey('gemini',this.value)">
+          <div class="api-hint">Free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com</a></div>
+        </div>
+        <div class="settings-group" style="margin-top:10px;">
+          <div class="settings-group-title">EmailJS (for note emails)</div>
+          <input type="password" id="ejs-public-key" placeholder="Public key" oninput="saveApiKey('ejspub',this.value)" style="margin-bottom:4px;">
+          <input type="password" id="ejs-service-id" placeholder="Service ID" oninput="saveApiKey('ejssvc',this.value)" style="margin-bottom:4px;">
+          <input type="password" id="ejs-template-id" placeholder="Template ID" oninput="saveApiKey('ejstpl',this.value)">
+          <div class="api-hint">Free at <a href="https://emailjs.com" target="_blank">emailjs.com</a> · 200 emails/month</div>
+        </div>
+        <div class="settings-group" style="margin-top:10px;">
+          <div class="settings-group-title">Your email (sender)</div>
+          <input type="email" id="sender-email" placeholder="your@email.com" oninput="saveApiKey('senderemail',this.value)">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NO SELECTION -->
+  <div id="no-student" class="main">
+    <div style="font-size:36px;margin-bottom:12px;">🎵</div>
+    <div>Select a student or open the Library</div>
+  </div>
+
+  <!-- STUDENT PANEL -->
+  <div id="student-panel" class="main" style="display:none;">
+    <div class="main-header">
+      <div class="avatar-lg" id="hdr-avatar"></div>
+      <div>
+        <div class="hdr-name" id="hdr-name"></div>
+        <div class="hdr-sub" id="hdr-sub"></div>
+      </div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab active" id="tab-dashboard" onclick="switchTab('dashboard')">📋 Dashboard</div>
+      <div class="tab" id="tab-songs" onclick="switchTab('songs')">🎵 Songs</div>
+      <div class="tab" id="tab-notes" onclick="switchTab('notes')">📝 Notes</div>
+      <div class="tab" id="tab-exercises" onclick="switchTab('exercises')">✅ Exercises</div>
+      <div class="tab" id="tab-lessonplan" onclick="switchTab('lessonplan')">🎯 Lesson Plan</div>
+    </div>
+    <div class="tab-content" id="tab-content"></div>
+  </div>
+
+  <!-- LIBRARY PANEL -->
+  <div id="library-panel" class="main" style="display:none;">
+    <div class="main-header">
+      <div style="font-size:28px;">📚</div>
+      <div>
+        <div class="hdr-name">Teaching Library</div>
+        <div class="hdr-sub">Your personal catalogue of songs and exercises</div>
+      </div>
+    </div>
+    <div class="tab-content" id="library-content"></div>
+  </div>
+</div>
+
+<!-- PICKERS -->
+<div class="picker-bg" id="song-picker-bg" onclick="closeSongPicker(event)">
+  <div class="picker-modal">
+    <h3>Add song from library</h3>
+    <input class="search-input" id="song-picker-search" placeholder="Search songs…" oninput="renderSongPicker()">
+    <div class="picker-list" id="song-picker-list"></div>
+    <div style="margin-top:12px;"><button class="btn-cancel" onclick="document.getElementById('song-picker-bg').classList.remove('open')">Close</button></div>
+  </div>
+</div>
+
+<div class="picker-bg" id="ex-picker-bg" onclick="closeExPicker(event)">
+  <div class="picker-modal">
+    <h3>Add exercise from library</h3>
+    <input class="search-input" id="ex-picker-search" placeholder="Search exercises…" oninput="renderExPicker()">
+    <div class="picker-list" id="ex-picker-list"></div>
+    <div style="margin-top:12px;"><button class="btn-cancel" onclick="document.getElementById('ex-picker-bg').classList.remove('open')">Close</button></div>
+  </div>
+</div>
+
+<!-- MAIN MODAL -->
+<div class="modal-bg" id="modal-bg" onclick="closeBg(event)">
+  <div class="modal" id="modal-box"></div>
+</div>
+
+<script>
+const COLORS=[
+  {bg:'#EEEDFE',color:'#534AB7'},{bg:'#E1F5EE',color:'#0F6E56'},
+  {bg:'#FAECE7',color:'#993C1D'},{bg:'#FAEEDA',color:'#854F0B'},
+  {bg:'#E6F1FB',color:'#185FA5'},{bg:'#EAF3DE',color:'#3B6D11'},
+  {bg:'#FBEAF0',color:'#993556'},{bg:'#F1EFE8',color:'#5F5E5A'}
+];
+
+let DB={
+  students:[
+    {
+      id:1,name:'Maya Chen',level:'Intermediate',colorIdx:0,
+      goals:['Extend upper passaggio through E5','Develop consistent mix voice','Build stamina for performance sets'],
+      songs:[
+        {title:'Defying Gravity',key:'Bb',notes:'Struggling with belt in bridge',tags:['belt','passaggio','chest-mix'],archived:false},
+        {title:'The Climb',key:'G',notes:'Good progress on dynamics',tags:['dynamics','breath'],archived:false}
+      ],
+      struggles:[
+        {area:'Passaggio transitions',detail:'Breaks at D5 in chest mix; tension visible in neck',severity:'high'},
+        {area:'Breath support on long phrases',detail:'Running out of air before phrase ends',severity:'medium'},
+        {area:'Consistent vibrato',detail:'Vibrato stops when going loud',severity:'low'}
+      ],
+      exercises:[
+        {name:'Lip trill scales',pattern:'1-2-3-4-5-4-3-2-1',status:'success',notes:'Great for warm-up, releases jaw tension'},
+        {name:'Octave arpeggios',pattern:'1-3-5-8-5-3-1',status:'partial',notes:'Breaks at the top — continue'},
+        {name:'Messa di voce on A4',pattern:'Sustained note, swell and fade',status:'success',notes:'Really helped with breath control'},
+        {name:'Five-tone scales staccato',pattern:'1-2-3-4-5',status:'pending',notes:'Assigned last session'},
+      ],
+      sessionNotes:[],chatHistory:[],lessonPlan:null
+    },
+    {
+      id:2,name:'Jordan Lee',level:'Beginner',colorIdx:1,
+      goals:['Develop proper breath support','Find and stabilize head voice','Improve pitch accuracy on leaps'],
+      songs:[{title:'Somewhere Over the Rainbow',key:'F',notes:'Pitch issues on octave jump',tags:['head-voice','leaps','breath'],archived:false}],
+      struggles:[
+        {area:'Breath support',detail:'Shallow breathing; shoulders rise when inhaling',severity:'high'},
+        {area:'Octave jumps',detail:'Scoops up to high notes instead of landing on pitch',severity:'medium'},
+      ],
+      exercises:[
+        {name:'Hissing breath exercises',pattern:'Sustained s sound on exhale',status:'success',notes:'Really understanding breath now'},
+        {name:'Siren slides',pattern:'Glide from chest to head and back',status:'partial',notes:'Finding head voice but still wobbly'},
+      ],
+      sessionNotes:[],chatHistory:[],lessonPlan:null
+    }
+  ],
+  library:{
+    songs:[
+      {id:'ls1',title:'Defying Gravity',composer:'Schwartz',key:'Bb',tags:['belt','passaggio','mix','musical-theatre'],notes:'Great for working mix/belt coordination. Bridge is intense passaggio territory.'},
+      {id:'ls2',title:'Somewhere Over the Rainbow',composer:'Arlen',key:'F',tags:['head-voice','leaps','legato','breath'],notes:'Classic for establishing head voice and smooth octave leaps. Good for breath control too.'},
+    ],
+    exercises:[
+      {id:'le1',name:'Lip trill scales',pattern:'1-2-3-4-5-4-3-2-1',tags:['warm-up','registration','jaw-release','breath'],notes:'Excellent all-purpose warm-up. Releases jaw and tongue tension, encourages forward placement.'},
+      {id:'le2',name:'Messa di voce',pattern:'Sustained note — swell from pp to ff and back',tags:['breath','dynamics','support','advanced'],notes:'Builds breath control and dynamic range. Best on A4 or B4 for most voices.'},
+      {id:'le3',name:'Siren slides',pattern:'Glide from lowest to highest and back on "wee"',tags:['registration','passaggio','warm-up','head-voice'],notes:'Smooths out passaggio by removing the gear-shift mentality. Low pressure on the mechanism.'},
+      {id:'le4',name:'Octave arpeggios',pattern:'1-3-5-8-5-3-1',tags:['range','registration','passaggio'],notes:'Builds range and tests passaggio under moderate demand.'},
+      {id:'le5',name:'Hissing breath',pattern:'Sustained "s" for 10-20 seconds, focus on even release',tags:['breath','support','beginner'],notes:'Establishes connection to breath support without vocal fold involvement. Great for beginners.'},
+    ]
+  },
+  activeId:1,
+  activeTab:'dashboard',
+  view:'student' // 'student' | 'library'
+};
+
+let libSubtab='songs'; // 'songs' | 'exercises'
+
+// ── Storage ──────────────────────────────────────────────
+function save(){ try{ localStorage.setItem('vstdb3',JSON.stringify({students:DB.students,library:DB.library})); }catch(e){} }
+function load(){ try{ const d=localStorage.getItem('vstdb3'); if(d){ const p=JSON.parse(d); DB.students=p.students||DB.students; DB.library=p.library||DB.library; } }catch(e){} }
+function saveApiKey(k,v){ try{ localStorage.setItem('vstkey_'+k,v); }catch(e){} }
+function loadApiKey(k){ try{ return localStorage.getItem('vstkey_'+k)||''; }catch(e){ return ''; } }
+function toggleSettings(){ document.getElementById('api-wrap').classList.toggle('open'); }
+function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function geminiKey(){ return (document.getElementById('api-key-input')?.value||loadApiKey('gemini')).trim(); }
+function initials(n){ return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+function color(idx){ return COLORS[idx%COLORS.length]; }
+function getActive(){ return DB.students.find(s=>s.id===DB.activeId); }
+function uid(){ return 'l'+Date.now()+Math.random().toString(36).slice(2,6); }
+function sortedStudents(){ return [...DB.students].sort((a,b)=>a.name.localeCompare(b.name)); }
+
+// ── Sidebar ───────────────────────────────────────────────
+function renderSidebar(){
+  document.getElementById('student-list').innerHTML=sortedStudents().map(s=>{
+    const c=color(s.colorIdx),act=(DB.view==='student'&&s.id===DB.activeId)?'active':'';
+    const priv=s.isPrivate?`<span class="private-badge">Private</span>`:'';
+    return `<div class="student-item ${act}" onclick="selectStudent(${s.id})">
+      <div class="avatar" style="background:${c.bg};color:${c.color}">${initials(s.name)}</div>
+      <div style="min-width:0;"><div class="s-name">${esc(s.name)}${priv}</div><div class="s-level">${esc(s.level)}</div></div>
+    </div>`;
+  }).join('');
+  document.getElementById('lib-btn').className='library-btn'+(DB.view==='library'?' active':'');
+}
+
+function selectStudent(id){
+  DB.activeId=id; DB.activeTab='dashboard'; DB.view='student';
+  renderSidebar(); renderPanels();
+}
+function selectLibrary(){
+  DB.view='library'; renderSidebar(); renderPanels();
+}
+
+function renderPanels(){
+  document.getElementById('no-student').style.display='none';
+  document.getElementById('student-panel').style.display=DB.view==='student'?'flex':'none';
+  document.getElementById('library-panel').style.display=DB.view==='library'?'flex':'none';
+  if(DB.view==='student'){ const s=getActive(); if(!s){ document.getElementById('no-student').style.display='flex'; document.getElementById('student-panel').style.display='none'; return; } renderStudentHeader(s); renderTabBar(); renderTab(); }
+  else renderLibraryPanel();
+}
+
+function renderStudentHeader(s){
+  const c=color(s.colorIdx);
+  const av=document.getElementById('hdr-avatar');
+  av.style.cssText=`background:${c.bg};color:${c.color};width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0;`;
+  av.textContent=initials(s.name);
+  document.getElementById('hdr-name').textContent=s.name;
+  const mastered=s.exercises.filter(e=>e.status==='success').length;
+  document.getElementById('hdr-sub').textContent=s.level+' · '+mastered+' exercise'+(mastered===1?'':'s')+' mastered';
+}
+
+function renderTabBar(){
+  ['dashboard','songs','notes','exercises','lessonplan'].forEach(t=>{
+    document.getElementById('tab-'+t).className='tab'+(t===DB.activeTab?' active':'');
+  });
+}
+function switchTab(t){ DB.activeTab=t; renderTabBar(); renderTab(); if(t==='dashboard') setTimeout(attachChatScroll,50); }
+
+function renderTab(){
+  const s=getActive(); if(!s) return;
+  const el=document.getElementById('tab-content');
+  if(DB.activeTab==='dashboard') el.innerHTML=renderDashboard(s);
+  else if(DB.activeTab==='songs') el.innerHTML=renderSongs(s);
+  else if(DB.activeTab==='notes') el.innerHTML=renderNotes(s);
+  else if(DB.activeTab==='exercises') el.innerHTML=renderExercises(s);
+  else if(DB.activeTab==='lessonplan') el.innerHTML=renderLessonPlan(s);
+  if(DB.activeTab==='dashboard') setTimeout(attachChatScroll,50);
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────
+function renderDashboard(s){
+  const activeSongs=s.songs.filter(sg=>!sg.archived);
+  const plan=s.lessonPlan&&!s.lessonPlan.error?s.lessonPlan:null;
+
+  return `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+    <div>
+      <div class="section-label">Goals</div>
+      <div class="card" style="margin-bottom:0;">
+        ${s.goals.length?s.goals.map(g=>`<div class="goal-item"><span class="goal-bullet">›</span><span>${esc(g)}</span></div>`).join(''):'<span style="color:var(--text2);font-size:13px;">No goals yet.</span>'}
+        <button class="add-row-btn" style="margin-top:8px;" onclick="openModal('goal')">+ Add goal</button>
+      </div>
+    </div>
+    <div>
+      <div class="section-label">Current songs</div>
+      <div class="card" style="margin-bottom:0;">
+        ${activeSongs.length?activeSongs.map(sg=>`<div class="dash-song">
+          <div>
+            <div class="dash-song-title">${esc(sg.title)}</div>
+            <div class="dash-song-meta">Key of ${esc(sg.key)} · ${(sg.tags||[]).map(t=>'#'+t).join(' ')}</div>
+          </div>
+        </div>`).join(''):'<span style="color:var(--text2);font-size:13px;">No songs yet.</span>'}
+        <button class="add-row-btn" style="margin-top:8px;" onclick="switchTab(\'songs\')">→ Manage songs</button>
+      </div>
+    </div>
+  </div>
+
+  ${plan?`<div class="section-label">Last lesson plan snapshot</div>
+  <div class="card" style="margin-bottom:20px;">
+    ${plan.overview?`<div style="font-size:13px;color:var(--text2);margin-bottom:10px;line-height:1.6;">${esc(plan.overview)}</div>`:''}
+    ${(plan.focus||[]).slice(0,2).map(f=>`<div style="font-size:13px;padding:5px 0;border-bottom:0.5px solid var(--border);display:flex;gap:8px;align-items:flex-start;"><span style="color:var(--coral-mid);">🎯</span><span><strong>${esc(f.name||f)}</strong>${f.instruction?' — '+esc(f.instruction):''}</span></div>`).join('')}
+    <button class="add-row-btn" style="margin-top:8px;" onclick="switchTab(\'lessonplan\')">→ Full lesson plan</button>
+  </div>`:`<div class="card" style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="font-size:13px;color:var(--text2);">No lesson plan yet.</div>
+    <button class="add-row-btn" style="margin-top:0;" onclick="switchTab(\'lessonplan\')">Generate →</button>
+  </div>`}
+
+  <div class="section-label">In-session assistant</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Ask anything mid-lesson — exercises to try, modifications, troubleshooting. Uses ${esc(s.name)}'s full history and your exercise library.</div>
+  <div class="chat-wrap">
+    <div class="chat-messages" id="chat-messages">${renderChatMessages(s)}</div>
+    <div class="chat-input-row">
+      <input class="chat-input" id="chat-input" placeholder="e.g. She's cracking on E5 — what should I try?" onkeydown="chatKeydown(event)">
+      <button class="chat-send-btn" id="chat-send-btn" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:flex-end;margin-top:4px;">
+    <button class="chat-clear-btn" onclick="clearChat()">Clear conversation</button>
+  </div>`;
+}
+
+function renderChatMessages(s){
+  const h=s.chatHistory||[];
+  if(!h.length) return `<div style="color:var(--text3);font-size:13px;font-style:italic;padding:6px 0;">Ask a question to get real-time coaching suggestions…</div>`;
+  return h.map(m=>{
+    if(m.role==='user') return `<div class="chat-msg user">${esc(m.content)}</div>`;
+    return `<div class="chat-msg ai">${m.content.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}</div>`;
+  }).join('');
+}
+function attachChatScroll(){ const el=document.getElementById('chat-messages'); if(el) el.scrollTop=el.scrollHeight; }
+function chatKeydown(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat(); } }
+
+async function sendChat(){
+  const s=getActive(); if(!s) return;
+  const input=document.getElementById('chat-input');
+  const msg=input.value.trim(); if(!msg) return;
+  const key=geminiKey();
+  if(!key){ alert('Add your Gemini API key in the sidebar first.'); return; }
+  if(!s.chatHistory) s.chatHistory=[];
+  s.chatHistory.push({role:'user',content:msg});
+  input.value='';
+  document.getElementById('chat-send-btn').disabled=true;
+  const msgEl=document.getElementById('chat-messages');
+  msgEl.innerHTML=renderChatMessages(s)+`<div class="chat-msg ai thinking"><div class="spinner"></div>Thinking…</div>`;
+  msgEl.scrollTop=msgEl.scrollHeight;
+
+  const libExercises=DB.library.exercises.map(e=>e.name+' ['+e.tags.join(',')+'] — '+e.notes).join('\n');
+  const context=buildStudentContext(s);
+  const systemPrompt=`You are an expert vocal coach assistant helping a teacher during a live lesson. Be concise and practical. Suggest specific exercises with clear instructions. Reference the student's history and the teacher's exercise library when relevant. Use **bold** for exercise names.
+
+STUDENT:
+${context}
+
+TEACHER'S EXERCISE LIBRARY:
+${libExercises}
+
+Keep responses focused — 3-6 sentences unless more detail is clearly needed.`;
+
+  const history=s.chatHistory;
+  let contents;
+  if(history.length===1){
+    contents=[{role:'user',parts:[{text:systemPrompt+'\n\nTeacher: '+msg}]}];
+  } else {
+    contents=[{role:'user',parts:[{text:systemPrompt+'\n\nTeacher: '+history[0].content}]}];
+    for(let i=1;i<history.length;i++){
+      contents.push({role:history[i].role==='user'?'user':'model',parts:[{text:history[i].content}]});
+    }
+  }
+
+  try{
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents,generationConfig:{temperature:0.6,maxOutputTokens:500}})
+    });
+    const data=await res.json();
+    if(data.error) s.chatHistory.push({role:'assistant',content:'⚠ '+data.error.message});
+    else s.chatHistory.push({role:'assistant',content:data.candidates?.[0]?.content?.parts?.[0]?.text||'No response.'});
+  }catch(e){ s.chatHistory.push({role:'assistant',content:'⚠ Could not reach Gemini.'}); }
+  save();
+  document.getElementById('chat-send-btn').disabled=false;
+  const el=document.getElementById('chat-messages');
+  if(el){ el.innerHTML=renderChatMessages(s); el.scrollTop=el.scrollHeight; }
+}
+function clearChat(){ const s=getActive(); if(!s) return; s.chatHistory=[]; save(); renderTab(); }
+
+// ── SONGS ─────────────────────────────────────────────────
+function renderSongs(s){
+  const active=s.songs.filter(sg=>!sg.archived);
+  const archived=s.songs.filter(sg=>sg.archived);
+  return `
+  <div class="section-label">Current repertoire</div>
+  ${active.map(sg=>{
+    const ri=s.songs.indexOf(sg);
+    const related=s.songs.filter((o,oi)=>oi!==ri&&o.archived&&(o.tags||[]).some(t=>(sg.tags||[]).includes(t)));
+    const relEx=getRelatedExercises(s,sg);
+    return `<div class="card">
+      <div class="card-row">
+        <div><div class="card-title">${esc(sg.title)}</div><div style="font-size:12px;color:var(--text2);margin-top:2px;">Key of ${esc(sg.key)}</div></div>
+        <div style="display:flex;gap:6px;">
+          <button class="icon-btn" onclick="archiveSong(${ri})" title="Archive">📦</button>
+          <button class="icon-btn" onclick="deleteSong(${ri})">🗑</button>
+        </div>
+      </div>
+      <textarea class="inline-edit" rows="2" onchange="updateSongNote(${ri},this.value)">${esc(sg.notes||'')}</textarea>
+      <div class="hashtag-input-wrap">
+        ${(sg.tags||[]).map((t,ti)=>`<span class="hashtag">#${esc(t)} <span style="cursor:pointer;margin-left:3px;" onclick="removeSongTag(${ri},${ti})">×</span></span>`).join('')}
+        <input class="hashtag-input" placeholder="+ tag" onkeydown="addSongTagKey(event,${ri},this)">
+      </div>
+      ${related.length?`<div class="related-songs-box">🔗 Shared tags with archived: <strong>${related.map(r=>esc(r.title)).join(', ')}</strong>${relEx.length?' · Past exercises that helped: '+relEx.map(e=>esc(e)).join(', '):''}</div>`:''}
+    </div>`;
+  }).join('')||'<div style="color:var(--text2);font-size:13px;margin-bottom:10px;">No current songs.</div>'}
+  <div style="display:flex;gap:8px;margin-top:4px;">
+    <button class="add-row-btn" onclick="openModal('song')">+ New song</button>
+    <button class="add-row-btn" onclick="openSongPicker()" style="border-color:var(--green-mid);color:var(--green);">📚 From library</button>
+  </div>
+
+  ${archived.length?`<div class="section-label" style="margin-top:22px;">📦 Archived (${archived.length})</div>
+  ${archived.map(sg=>{
+    const ri=s.songs.indexOf(sg);
+    return `<div class="archive-song-card">
+      <div class="card-row">
+        <div><div style="font-size:13px;font-weight:500;">${esc(sg.title)} <span style="font-weight:400;color:var(--text2);">· Key ${esc(sg.key)}</span></div>
+        <div style="margin-top:4px;">${(sg.tags||[]).map(t=>`<span class="hashtag">#${esc(t)}</span>`).join('')}</div></div>
+        <button class="icon-btn" onclick="unarchiveSong(${ri})" title="Restore">↩</button>
+      </div>
+      ${sg.notes?`<div style="font-size:12px;color:var(--text2);margin-top:5px;">${esc(sg.notes)}</div>`:''}
+    </div>`;
+  }).join('')}`:''}`;
+}
+
+function getRelatedExercises(s,song){
+  const tags=song.tags||[];
+  return s.exercises.filter(ex=>ex.status==='success'&&tags.some(t=>ex.name.toLowerCase().includes(t)||ex.notes.toLowerCase().includes(t))).map(ex=>ex.name);
+}
+function addSongTagKey(e,idx,input){
+  if(e.key==='Enter'||e.key===','){e.preventDefault();const val=input.value.trim().replace(/^#/,'').replace(/\s+/g,'-').toLowerCase();if(val){const s=getActive();if(!s.songs[idx].tags)s.songs[idx].tags=[];if(!s.songs[idx].tags.includes(val))s.songs[idx].tags.push(val);save();renderTab();}}
+}
+function removeSongTag(idx,ti){const s=getActive();s.songs[idx].tags.splice(ti,1);save();renderTab();}
+function archiveSong(i){const s=getActive();s.songs[i].archived=true;save();renderTab();}
+function unarchiveSong(i){const s=getActive();s.songs[i].archived=false;save();renderTab();}
+function deleteSong(i){const s=getActive();s.songs.splice(i,1);save();renderTab();}
+function updateSongNote(i,v){const s=getActive();s.songs[i].notes=v;save();}
+
+// Song picker
+function openSongPicker(){document.getElementById('song-picker-bg').classList.add('open');renderSongPicker();}
+function closeSongPicker(e){if(e.target===document.getElementById('song-picker-bg'))document.getElementById('song-picker-bg').classList.remove('open');}
+function renderSongPicker(){
+  const q=(document.getElementById('song-picker-search')?.value||'').toLowerCase();
+  const s=getActive();
+  const assigned=new Set(s.songs.map(sg=>sg.title.toLowerCase()));
+  const items=DB.library.songs.filter(ls=>!assigned.has(ls.title.toLowerCase())&&(!q||ls.title.toLowerCase().includes(q)||ls.tags.some(t=>t.includes(q))));
+  document.getElementById('song-picker-list').innerHTML=items.length?items.map(ls=>`<div class="picker-item">
+    <div class="picker-item-info">
+      <div class="picker-item-name">${esc(ls.title)}</div>
+      <div class="picker-item-meta">Key ${esc(ls.key)} · ${ls.tags.map(t=>'#'+t).join(' ')}</div>
+      ${ls.notes?`<div style="font-size:11px;color:var(--text2);margin-top:2px;">${esc(ls.notes)}</div>`:''}
+    </div>
+    <button class="lib-assign-btn" onclick="assignSongFromLib('${esc(ls.id)}')">+ Assign</button>
+  </div>`).join(''):'<div style="color:var(--text2);font-size:13px;padding:12px 0;">No matching songs in library.</div>';
+}
+function assignSongFromLib(libId){
+  const s=getActive(); const ls=DB.library.songs.find(l=>l.id===libId); if(!ls||!s) return;
+  s.songs.push({title:ls.title,key:ls.key,notes:'',tags:[...ls.tags],archived:false});
+  save(); document.getElementById('song-picker-bg').classList.remove('open'); renderTab();
+}
+
+// Exercise picker
+function openExPicker(){document.getElementById('ex-picker-bg').classList.add('open');renderExPicker();}
+function closeExPicker(e){if(e.target===document.getElementById('ex-picker-bg'))document.getElementById('ex-picker-bg').classList.remove('open');}
+function renderExPicker(){
+  const q=(document.getElementById('ex-picker-search')?.value||'').toLowerCase();
+  const s=getActive();
+  const assigned=new Set(s.exercises.map(ex=>ex.name.toLowerCase()));
+  const items=DB.library.exercises.filter(le=>!assigned.has(le.name.toLowerCase())&&(!q||le.name.toLowerCase().includes(q)||le.tags.some(t=>t.includes(q))||le.notes.toLowerCase().includes(q)));
+  document.getElementById('ex-picker-list').innerHTML=items.length?items.map(le=>`<div class="picker-item">
+    <div class="picker-item-info">
+      <div class="picker-item-name">${esc(le.name)}</div>
+      <div class="picker-item-meta">${esc(le.pattern)} · ${le.tags.map(t=>'#'+t).join(' ')}</div>
+      ${le.notes?`<div style="font-size:11px;color:var(--text2);margin-top:2px;">${esc(le.notes)}</div>`:''}
+    </div>
+    <button class="lib-assign-btn" onclick="assignExFromLib('${esc(le.id)}')">+ Assign</button>
+  </div>`).join(''):'<div style="color:var(--text2);font-size:13px;padding:12px 0;">No matching exercises in library.</div>';
+}
+function assignExFromLib(libId){
+  const s=getActive(); const le=DB.library.exercises.find(l=>l.id===libId); if(!le||!s) return;
+  s.exercises.push({name:le.name,pattern:le.pattern,status:'pending',notes:le.notes});
+  save(); document.getElementById('ex-picker-bg').classList.remove('open'); renderTab();
+}
+
+// ── NOTES ─────────────────────────────────────────────────
+function renderNotes(s){
+  if(!s.sessionNotes) s.sessionNotes=[];
+  const sorted=[...s.sessionNotes].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const topStruggles=s.struggles.slice().sort((a,b)=>({high:0,medium:1,low:2}[a.severity]-{high:0,medium:1,low:2}[b.severity])).slice(0,3);
+  const wins=[];
+  for(const n of sorted){ if(n.analysis&&n.analysis.wins) for(const w of n.analysis.wins){ if(wins.length<3) wins.push({win:w,date:n.date}); } }
+  const ejsReady=loadApiKey('ejspub')&&loadApiKey('ejssvc')&&loadApiKey('ejstpl');
+
+  return `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <div>
+      <div style="font-size:15px;font-weight:600;">Session Notes</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px;">${s.isPrivate?'🔒 Private studio student':'🎸 School of Rock student'}</div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2);">
+      <span>Private studio</span>
+      <label class="toggle-switch">
+        <input type="checkbox" ${s.isPrivate?'checked':''} onchange="togglePrivate(this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </label>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
+    <div>
+      <div class="section-label">Top struggles</div>
+      ${topStruggles.length?topStruggles.map(st=>`<div class="struggle-mini">
+        <div class="struggle-mini-title">⚡ ${esc(st.area)}</div>
+        <div class="struggle-mini-detail">${esc(st.detail)}</div>
+      </div>`).join(''):'<div style="font-size:13px;color:var(--text2);">None logged.</div>'}
+      <button class="add-row-btn" onclick="openModal('struggle')">+ Log struggle</button>
+    </div>
+    <div>
+      <div class="section-label">Recent wins 🏆</div>
+      ${wins.length?wins.map(w=>`<div class="win-card">✓ ${esc(w.win)} <span style="font-size:11px;opacity:0.7;">${w.date}</span></div>`).join(''):'<div style="font-size:13px;color:var(--text2);">Wins appear after you analyze session notes.</div>'}
+    </div>
+  </div>
+
+  <div class="section-label">Add session notes</div>
+  ${s.isPrivate?`<div style="background:var(--purple-light);border:0.5px solid var(--purple-mid);border-radius:var(--radius);padding:9px 12px;margin-bottom:10px;font-size:12px;color:var(--purple-text);">🔒 Private student — notes won't be in Pike13. You can email a copy after saving.</div>`:''}
+  <textarea class="notes-paste-area" id="note-paste-input" placeholder="${s.isPrivate?'Type your session notes — you can email a copy when done.':'Paste Pike13 notes or type your own observations…'}"></textarea>
+  <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">
+    <input id="note-date-input" type="date" style="padding:6px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-family:var(--font);font-size:13px;" value="${new Date().toISOString().slice(0,10)}">
+    <button class="add-row-btn" style="margin-top:0;" onclick="saveNote()">💾 Save</button>
+    <button class="gen-btn" onclick="saveAndAnalyzeNote()" style="flex:2;min-width:160px;padding:7px 10px;font-size:12px;">✨ Save & analyze</button>
+  </div>
+  ${s.isPrivate?`<div style="margin-top:10px;padding:12px 14px;background:var(--bg2);border-radius:var(--radius);border:0.5px solid var(--border);">
+    <div style="font-size:12px;font-weight:500;margin-bottom:8px;">📧 Email this note</div>
+    <input id="note-recipient-email" type="email" placeholder="Recipient email (student, parent, or yourself)" style="width:100%;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:13px;font-family:var(--font);margin-bottom:8px;">
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="send-note-btn ${ejsReady?'ready':'disabled'}" onclick="${ejsReady?'sendNoteEmail()':'showEmailSetupHint()'}" id="send-email-btn">
+        ✉ ${ejsReady?'Send note email':'Set up EmailJS first'}
+      </button>
+      ${!ejsReady?`<span style="font-size:11px;color:var(--text3);">Add EmailJS keys in ⚙ Settings</span>`:''}
+    </div>
+    <div id="email-status" class="note-send-status"></div>
+  </div>`:''}
+
+  <div class="section-label" style="margin-top:20px;">Note history <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);font-size:11px;">(newest first)</span></div>
+  ${sorted.length?sorted.map(n=>{
+    const origIdx=s.sessionNotes.indexOf(n);
+    return `<div class="note-entry">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+        <div class="note-date">${n.date}${n.emailed?` <span style="color:var(--green);font-size:10px;">✓ emailed</span>`:''}</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          ${s.isPrivate&&ejsReady?`<button class="add-row-btn" style="margin-top:0;font-size:11px;padding:4px 9px;border-color:var(--purple-mid);color:var(--purple);" onclick="sendHistoryNoteEmail(${origIdx})">✉ Email</button>`:''}
+          ${!n.analysis||n.analysis.error?`<button class="add-row-btn" style="margin-top:0;font-size:11px;padding:4px 9px;" onclick="analyzeNote(${origIdx})">✨ Analyze</button>`:''}
+          <button class="icon-btn" onclick="deleteNote(${origIdx})">🗑</button>
+        </div>
+      </div>
+      <div class="note-text">${highlightNote(n.text,s)}</div>
+      ${n.analysis?renderNoteAnalysis(n.analysis,origIdx):''}
+    </div>`;
+  }).join(''):'<div style="color:var(--text2);font-size:13px;padding:12px 0;">No notes yet.</div>'}`;
+}
+
+function highlightNote(text,s){
+  let t=esc(text);
+  const sw=s.struggles.map(st=>st.area.split(' ')[0].toLowerCase()).filter(w=>w.length>3);
+  const ew=s.exercises.map(ex=>ex.name.split(' ')[0].toLowerCase()).filter(w=>w.length>3);
+  const ww=['great','improved','nailed','breakthrough','better','success','mastered','finally','clicked','yes','progress'];
+  sw.forEach(w=>{t=t.replace(new RegExp('('+w+'\\w*)','gi'),'<span class="highlight-struggle">$1</span>');});
+  ew.forEach(w=>{t=t.replace(new RegExp('('+w+'\\w*)','gi'),'<span class="highlight-exercise">$1</span>');});
+  ww.forEach(w=>{t=t.replace(new RegExp('\\b('+w+'\\w*)\\b','gi'),'<span class="highlight-win">$1</span>');});
+  return t;
+}
+
+function renderNoteAnalysis(analysis,noteIdx){
+  if(analysis.loading) return `<div style="display:flex;align-items:center;gap:7px;padding:8px 0;color:var(--purple);font-size:12px;"><div class="spinner"></div>Analyzing…</div>`;
+  if(analysis.error) return `<div class="ai-error" style="font-size:12px;">⚠ ${esc(analysis.error)}</div>`;
+  const goals=(analysis.goals||[]).map((g,gi)=>`<div class="suggestion-row"><span class="suggestion-text">🎯 ${esc(g)}</span><button class="add-suggestion-btn" onclick="addSuggestedGoal(${noteIdx},${gi})">+ Add</button></div>`).join('');
+  const struggles=(analysis.struggles||[]).map((st,si)=>`<div class="suggestion-row"><span class="suggestion-text">⚡ ${esc(st.area)}</span><button class="add-suggestion-btn" onclick="addSuggestedStruggle(${noteIdx},${si})">+ Log</button></div>`).join('');
+  const exercises=(analysis.exercises||[]).map((ex,ei)=>`<div class="suggestion-row"><span class="suggestion-text">✅ ${esc(ex.name)} <span style="font-size:11px;color:var(--purple);">${esc(ex.pattern)}</span></span><button class="add-suggestion-btn" onclick="addSuggestedExercise(${noteIdx},${ei})">+ Add</button></div>`).join('');
+  if(!goals&&!struggles&&!exercises) return `<div style="font-size:12px;color:var(--text2);padding:6px 0;font-style:italic;">No specific action items found.</div>`;
+  return `<div class="analysis-box">
+    <div class="ai-header" style="margin-bottom:4px;"><span>✨</span><span class="ai-title">AI analysis</span></div>
+    ${analysis.summary?`<div style="font-size:12px;color:var(--purple-text);margin-bottom:8px;font-style:italic;">${esc(analysis.summary)}</div>`:''}
+    ${goals?`<div class="analysis-section-title">Suggested goals</div>${goals}`:''}
+    ${struggles?`<div class="analysis-section-title">Struggles to log</div>${struggles}`:''}
+    ${exercises?`<div class="analysis-section-title">Exercises to try</div>${exercises}`:''}
+  </div>`;
+}
+
+function saveNote(){
+  const s=getActive(); if(!s) return;
+  const text=document.getElementById('note-paste-input')?.value?.trim(); if(!text) return;
+  if(!s.sessionNotes) s.sessionNotes=[];
+  const date=document.getElementById('note-date-input')?.value||new Date().toISOString().slice(0,10);
+  s.sessionNotes.push({text,date,analysis:null});
+  save(); renderTab();
+}
+async function saveAndAnalyzeNote(){
+  const s=getActive(); if(!s) return;
+  const text=document.getElementById('note-paste-input')?.value?.trim(); if(!text){alert('Add some notes first!');return;}
+  if(!s.sessionNotes) s.sessionNotes=[];
+  const date=document.getElementById('note-date-input')?.value||new Date().toISOString().slice(0,10);
+  s.sessionNotes.push({text,date,analysis:{loading:true}});
+  save(); renderTab();
+  await analyzeNote(s.sessionNotes.length-1);
+}
+async function analyzeNote(i){
+  const s=getActive(); if(!s||!s.sessionNotes[i]) return;
+  const key=geminiKey(); if(!key){s.sessionNotes[i].analysis={error:'No Gemini API key.'};save();renderTab();return;}
+  s.sessionNotes[i].analysis={loading:true}; renderTab();
+  const note=s.sessionNotes[i];
+  const prompt=`You are a vocal coach assistant. Parse these session notes for student "${s.name}" (${s.level}).
+Goals: ${s.goals.join('; ')||'none'}
+Struggles: ${s.struggles.map(x=>x.area).join(', ')||'none'}
+Exercises: ${s.exercises.map(e=>e.name+' ['+e.status+']').join(', ')||'none'}
+
+Notes: """${note.text}"""
+
+Respond ONLY with raw JSON — no markdown:
+{"summary":"1 sentence","wins":["specific win or breakthrough"],"goals":["suggested goal"],"struggles":[{"area":"","detail":"","severity":"low|medium|high"}],"exercises":[{"name":"","pattern":""}]}`;
+  try{
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.4}})});
+    const data=await res.json();
+    if(data.error) s.sessionNotes[i].analysis={error:'Gemini: '+data.error.message};
+    else s.sessionNotes[i].analysis=JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g,'').trim()||'{}');
+  }catch(e){s.sessionNotes[i].analysis={error:'Could not parse response.'};}
+  save(); renderTab();
+}
+function togglePrivate(val){ const s=getActive(); if(!s) return; s.isPrivate=val; save(); renderTab(); renderSidebar(); }
+function showEmailSetupHint(){ alert('To enable email sending, add your EmailJS keys in ⚙ Settings in the sidebar.\n\nFree account at emailjs.com — takes about 5 minutes to set up.'); }
+
+function buildNoteEmailBody(s, noteText, noteDate){
+  const songs=s.songs.filter(sg=>!sg.archived).map(sg=>sg.title+' ('+sg.key+')').join(', ')||'None';
+  const goals=s.goals.join('\n• ')||'None';
+  const struggles=s.struggles.slice(0,3).map(st=>st.area+' ('+st.severity+')').join(', ')||'None';
+  return `Session Notes — ${s.name}
+Date: ${noteDate}
+---
+
+${noteText}
+
+---
+Current songs: ${songs}
+Goals:
+• ${goals}
+Top struggles: ${struggles}
+
+Sent via Voice Studio Tracker`;
+}
+
+async function sendNoteEmail(){
+  const s=getActive(); if(!s) return;
+  const noteText=document.getElementById('note-paste-input')?.value?.trim();
+  const recipient=document.getElementById('note-recipient-email')?.value?.trim();
+  const noteDate=document.getElementById('note-date-input')?.value||new Date().toISOString().slice(0,10);
+  const statusEl=document.getElementById('email-status');
+  if(!noteText){statusEl.className='note-send-status err';statusEl.textContent='⚠ Write some notes first.';return;}
+  if(!recipient){statusEl.className='note-send-status err';statusEl.textContent='⚠ Enter a recipient email.';return;}
+  await doSendEmail(s, noteText, noteDate, recipient, statusEl, null);
+}
+
+async function sendHistoryNoteEmail(noteIdx){
+  const s=getActive(); if(!s) return;
+  const note=s.sessionNotes[noteIdx]; if(!note) return;
+  const recipient=prompt('Send to email address:'); if(!recipient) return;
+  await doSendEmail(s, note.text, note.date, recipient, null, noteIdx);
+}
+
+async function doSendEmail(s, noteText, noteDate, recipient, statusEl, noteIdx){
+  const pubKey=loadApiKey('ejspub');
+  const svcId=loadApiKey('ejssvc');
+  const tplId=loadApiKey('ejstpl');
+  const senderEmail=document.getElementById('sender-email')?.value||loadApiKey('senderemail')||'';
+  if(!pubKey||!svcId||!tplId){ if(statusEl){statusEl.className='note-send-status err';statusEl.textContent='⚠ EmailJS not configured — check Settings.';} return; }
+  if(statusEl){statusEl.className='note-send-status';statusEl.textContent='Sending…';}
+  try{
+    emailjs.init({publicKey:pubKey});
+    const body=buildNoteEmailBody(s,noteText,noteDate);
+    const result=await emailjs.send(svcId,tplId,{
+      to_email: recipient,
+      from_name: 'Voice Studio Tracker',
+      reply_to: senderEmail,
+      subject: `Session Notes — ${s.name} (${noteDate})`,
+      message: body,
+      student_name: s.name,
+      session_date: noteDate,
+      note_content: noteText
+    });
+    if(result.status===200){
+      if(statusEl){statusEl.className='note-send-status ok';statusEl.textContent='✓ Email sent successfully!';}
+      if(noteIdx!=null){s.sessionNotes[noteIdx].emailed=true;save();renderTab();}
+    } else {
+      if(statusEl){statusEl.className='note-send-status err';statusEl.textContent='⚠ Send failed (status '+result.status+').';}
+    }
+  }catch(e){
+    if(statusEl){statusEl.className='note-send-status err';statusEl.textContent='⚠ Error: '+(e.text||e.message||'Check your EmailJS config');}
+  }
+}
+
+function deleteNote(i){const s=getActive();s.sessionNotes.splice(i,1);save();renderTab();}
+function addSuggestedGoal(ni,gi){const s=getActive();const g=s.sessionNotes[ni]?.analysis?.goals?.[gi];if(g&&!s.goals.includes(g)){s.goals.push(g);save();renderTab();}}
+function addSuggestedStruggle(ni,si){const s=getActive();const st=s.sessionNotes[ni]?.analysis?.struggles?.[si];if(st){s.struggles.push({area:st.area,detail:st.detail,severity:st.severity||'medium'});save();renderTab();}}
+function addSuggestedExercise(ni,ei){const s=getActive();const ex=s.sessionNotes[ni]?.analysis?.exercises?.[ei];if(ex){s.exercises.push({name:ex.name,pattern:ex.pattern,status:'pending',notes:'From session notes'});save();DB.activeTab='exercises';renderTab();}}
+
+// ── EXERCISES ─────────────────────────────────────────────
+function renderExercises(s){
+  const dm={success:'dot-green',partial:'dot-amber',pending:'dot-gray',struggle:'dot-coral'};
+  return `
+  <div class="section-label">Exercise log</div>
+  <div class="card">
+    ${s.exercises.length?s.exercises.map((ex,i)=>`<div class="exercise-row">
+      <div class="dot ${dm[ex.status]||'dot-gray'}"></div>
+      <div class="ex-info">
+        <div class="ex-name">${esc(ex.name)}</div>
+        <div class="ex-detail">${esc(ex.pattern)}${ex.notes?' · '+esc(ex.notes):''}</div>
+      </div>
+      <select class="status-sel" onchange="updateExStatus(${i},this.value)">
+        <option value="pending"${ex.status==='pending'?' selected':''}>Pending</option>
+        <option value="partial"${ex.status==='partial'?' selected':''}>In progress</option>
+        <option value="success"${ex.status==='success'?' selected':''}>Mastered</option>
+        <option value="struggle"${ex.status==='struggle'?' selected':''}>Not working</option>
+      </select>
+      <button class="icon-btn" onclick="deleteExercise(${i})">🗑</button>
+    </div>`).join(''):'<div style="text-align:center;padding:16px;color:var(--text2);">No exercises yet.</div>'}
+  </div>
+  <div style="display:flex;gap:8px;margin-top:4px;">
+    <button class="add-row-btn" onclick="openModal('exercise')">+ New exercise</button>
+    <button class="add-row-btn" onclick="openExPicker()" style="border-color:var(--green-mid);color:var(--green);">📚 From library</button>
+  </div>`;
+}
+function deleteExercise(i){const s=getActive();s.exercises.splice(i,1);save();renderTab();}
+function updateExStatus(i,v){const s=getActive();s.exercises[i].status=v;save();renderTab();}
+
+// ── LESSON PLAN ───────────────────────────────────────────
+function renderLessonPlan(s){
+  if(DB.loadingPlan) return `<div class="ai-box"><div class="ai-header"><span>🎯</span><span class="ai-title">Building lesson plan…</span></div><div style="display:flex;align-items:center;gap:8px;color:var(--purple);font-size:13px;"><div class="spinner"></div>Reading notes and history…</div></div>`;
+  const sorted=(s.sessionNotes||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const recentNote=sorted.find(n=>n.analysis&&!n.analysis.loading&&!n.analysis.error);
+  if(s.lessonPlan&&!s.lessonPlan.error) return `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <div><div class="section-label" style="margin-bottom:2px;">Today's lesson plan</div><div style="font-size:11px;color:var(--text3);">Generated ${new Date(s.lessonPlan.generatedAt).toLocaleDateString()}</div></div>
+    <button class="add-row-btn" style="margin-top:0;" onclick="generateLessonPlan()">↺ Regenerate</button>
+  </div>
+  ${recentNote?`<div style="background:var(--bg2);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);border-left:3px solid var(--purple);">📝 Based on most recent note (${recentNote.date}): ${esc(recentNote.analysis?.summary||recentNote.text.slice(0,100)+'…')}</div>`:''}
+  ${s.lessonPlan.overview?`<div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:16px;padding:12px 14px;background:var(--bg2);border-radius:var(--radius);">${esc(s.lessonPlan.overview)}</div>`:''}
+  ${renderLessonSection('🔥 Warm-up','warm',s.lessonPlan.warmup)}
+  ${renderLessonSection('🎯 Focus work','focus',s.lessonPlan.focus)}
+  ${renderLessonSection('🎵 Repertoire','song',s.lessonPlan.repertoire)}
+  ${renderLessonSection('🌬 Cool-down','cool',s.lessonPlan.cooldown)}
+  ${s.lessonPlan.watchFor?`<div class="lesson-section"><div class="lesson-section-title">👁 Watch for</div><div class="lesson-item focus">${esc(s.lessonPlan.watchFor)}</div></div>`:''}
+  <button class="gen-btn" style="margin-top:8px;" onclick="generateLessonPlan()">↺ Regenerate</button>`;
+
+  return `
+  <div class="section-label">Lesson plan</div>
+  ${recentNote?`<div style="background:var(--bg2);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);border-left:3px solid var(--purple);">📝 Most recent note (${recentNote.date}): ${esc(recentNote.analysis?.summary||recentNote.text.slice(0,100)+'…')}</div>`:'<div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Add and analyze session notes for a more personalized plan.</div>'}
+  ${s.lessonPlan?.error?`<div class="ai-error" style="margin-bottom:12px;">⚠ ${esc(s.lessonPlan.error)}</div>`:''}
+  <div class="card" style="text-align:center;padding:28px 20px;">
+    <div style="font-size:32px;margin-bottom:12px;">🎯</div>
+    <div style="font-size:15px;font-weight:600;margin-bottom:6px;">Generate today's lesson plan</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.6;">Reads your most recent session note first, then cross-references goals, struggles, exercise history, and your library to build a focused, practical plan.</div>
+    <button class="gen-btn" onclick="generateLessonPlan()">🎯 Generate lesson plan</button>
+  </div>`;
+}
+
+function renderLessonSection(title,cls,items){
+  if(!items||!items.length) return '';
+  return `<div class="lesson-section"><div class="lesson-section-title">${title}</div>${items.map(item=>`<div class="lesson-item ${cls}"><strong>${esc(item.name||item)}</strong>${item.instruction?`<div class="lesson-note">${esc(item.instruction)}</div>`:''}${item.why?`<div class="lesson-note" style="color:var(--purple);">Why: ${esc(item.why)}</div>`:''}</div>`).join('')}</div>`;
+}
+
+async function generateLessonPlan(){
+  const s=getActive(); if(!s) return;
+  const key=geminiKey(); if(!key){alert('Add your Gemini API key in the sidebar first.');return;}
+  DB.loadingPlan=true; renderTab();
+  const sorted=(s.sessionNotes||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const recentNotes=sorted.slice(0,3).map((n,i)=>`Session ${i+1} (${n.date}):\n${n.text}`).join('\n\n---\n\n');
+  const libEx=DB.library.exercises.map(e=>e.name+' ['+e.tags.join(',')+'] — '+e.notes).join('\n');
+  const prompt=`You are an expert vocal coach. Build a practical lesson plan.
+
+${buildStudentContext(s)}
+
+TEACHER'S EXERCISE LIBRARY:
+${libEx}
+
+Most recent notes:
+${recentNotes||'None yet.'}
+
+Prioritize what came up most recently. Be specific — name exercises with instructions. Respond ONLY with raw JSON:
+{"overview":"2-3 sentence focus summary","warmup":[{"name":"","instruction":"","why":""}],"focus":[{"name":"","instruction":"","why":""}],"repertoire":[{"name":"song + section","instruction":""}],"cooldown":[{"name":"","instruction":""}],"watchFor":"one key observation"}`;
+
+  try{
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.5}})});
+    const data=await res.json();
+    if(data.error) s.lessonPlan={error:'Gemini: '+data.error.message,generatedAt:Date.now()};
+    else s.lessonPlan={...JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g,'').trim()||'{}'),generatedAt:Date.now()};
+  }catch(e){s.lessonPlan={error:'Could not parse response.',generatedAt:Date.now()};}
+  DB.loadingPlan=false; save(); renderTab();
+}
+
+// ── LIBRARY ───────────────────────────────────────────────
+function renderLibraryPanel(){
+  document.getElementById('library-content').innerHTML=`
+  <div class="subtab-bar">
+    <div class="subtab ${libSubtab==='songs'?'active':''}" onclick="setLibSubtab('songs')">🎵 Songs</div>
+    <div class="subtab ${libSubtab==='exercises'?'active':''}" onclick="setLibSubtab('exercises')">✅ Exercises</div>
+  </div>
+  ${libSubtab==='songs'?renderLibSongs():renderLibExercises()}`;
+}
+function setLibSubtab(t){libSubtab=t;renderLibraryPanel();}
+
+function renderLibSongs(){
+  const songs=DB.library.songs;
+  return `
+  <input class="search-input" id="lib-song-search" placeholder="Search songs by title or tag…" oninput="renderLibraryPanel()">
+  ${(() => {
+    const q=(document.getElementById('lib-song-search')?.value||'').toLowerCase();
+    const filtered=songs.filter(s=>!q||s.title.toLowerCase().includes(q)||s.tags.some(t=>t.includes(q)));
+    return filtered.length?filtered.map((ls,i)=>`<div class="lib-card">
+      <div class="card-row">
+        <div>
+          <div class="lib-card-title">${esc(ls.title)}</div>
+          <div class="lib-card-meta">Key ${esc(ls.key)}${ls.composer?' · '+esc(ls.composer):''}</div>
+          <div style="margin-top:5px;">${(ls.tags||[]).map((t,ti)=>`<span class="hashtag">#${esc(t)} <span style="cursor:pointer;margin-left:2px;" onclick="removeLibSongTag(${i},${ti})">×</span></span>`).join('')}</div>
+        </div>
+        <button class="icon-btn" onclick="deleteLibSong(${songs.indexOf(ls)})">🗑</button>
+      </div>
+      ${ls.notes?`<div class="lib-card-notes">${esc(ls.notes)}</div>`:''}
+      <div class="hashtag-input-wrap" style="margin-top:8px;">
+        <input class="hashtag-input" placeholder="+ tag" onkeydown="addLibSongTagKey(event,${songs.indexOf(ls)},this)">
+      </div>
+    </div>`):'<div class="empty-state">No songs in library yet.</div>';
+  })()}
+  <button class="add-row-btn" onclick="openModal('libsong')" style="margin-top:8px;">+ Add song to library</button>`;
+}
+
+function renderLibExercises(){
+  const exercises=DB.library.exercises;
+  return `
+  <input class="search-input" id="lib-ex-search" placeholder="Search exercises by name or tag…" oninput="renderLibraryPanel()">
+  ${(() => {
+    const q=(document.getElementById('lib-ex-search')?.value||'').toLowerCase();
+    const filtered=exercises.filter(e=>!q||e.name.toLowerCase().includes(q)||e.tags.some(t=>t.includes(q))||e.notes.toLowerCase().includes(q));
+    return filtered.length?filtered.map((le,i)=>`<div class="lib-card">
+      <div class="card-row">
+        <div>
+          <div class="lib-card-title">${esc(le.name)}</div>
+          <div class="lib-card-meta">${esc(le.pattern)}</div>
+          <div style="margin-top:5px;">${(le.tags||[]).map((t,ti)=>`<span class="hashtag amber">#${esc(t)} <span style="cursor:pointer;margin-left:2px;" onclick="removeLibExTag(${exercises.indexOf(le)},${ti})">×</span></span>`).join('')}</div>
+        </div>
+        <button class="icon-btn" onclick="deleteLibEx(${exercises.indexOf(le)})">🗑</button>
+      </div>
+      ${le.notes?`<div class="lib-card-notes">${esc(le.notes)}</div>`:''}
+      <div class="hashtag-input-wrap" style="margin-top:8px;">
+        <input class="hashtag-input" placeholder="+ tag" onkeydown="addLibExTagKey(event,${exercises.indexOf(le)},this)">
+      </div>
+    </div>`):'<div class="empty-state">No exercises in library yet.</div>';
+  })()}
+  <button class="add-row-btn" onclick="openModal('libexercise')" style="margin-top:8px;">+ Add exercise to library</button>`;
+}
+
+function addLibSongTagKey(e,idx,input){ if(e.key==='Enter'||e.key===','){ e.preventDefault(); const val=input.value.trim().replace(/^#/,'').replace(/\s+/g,'-').toLowerCase(); if(val){ if(!DB.library.songs[idx].tags) DB.library.songs[idx].tags=[]; if(!DB.library.songs[idx].tags.includes(val)) DB.library.songs[idx].tags.push(val); save(); renderLibraryPanel(); } } }
+function removeLibSongTag(idx,ti){ DB.library.songs[idx].tags.splice(ti,1); save(); renderLibraryPanel(); }
+function deleteLibSong(idx){ if(confirm('Remove from library?')){ DB.library.songs.splice(idx,1); save(); renderLibraryPanel(); } }
+function addLibExTagKey(e,idx,input){ if(e.key==='Enter'||e.key===','){ e.preventDefault(); const val=input.value.trim().replace(/^#/,'').replace(/\s+/g,'-').toLowerCase(); if(val){ if(!DB.library.exercises[idx].tags) DB.library.exercises[idx].tags=[]; if(!DB.library.exercises[idx].tags.includes(val)) DB.library.exercises[idx].tags.push(val); save(); renderLibraryPanel(); } } }
+function removeLibExTag(idx,ti){ DB.library.exercises[idx].tags.splice(ti,1); save(); renderLibraryPanel(); }
+function deleteLibEx(idx){ if(confirm('Remove from library?')){ DB.library.exercises.splice(idx,1); save(); renderLibraryPanel(); } }
+
+// ── Shared context ────────────────────────────────────────
+function buildStudentContext(s){
+  const analyzed=(s.sessionNotes||[]).filter(n=>n.analysis&&!n.analysis.loading&&!n.analysis.error);
+  return `Student: ${s.name}, Level: ${s.level}
+Goals: ${s.goals.join('; ')||'none'}
+Current songs: ${s.songs.filter(sg=>!sg.archived).map(sg=>sg.title+' (Key '+sg.key+') '+((sg.tags||[]).map(t=>'#'+t).join(' '))).join(', ')||'none'}
+Archived songs: ${s.songs.filter(sg=>sg.archived).map(sg=>sg.title+' '+((sg.tags||[]).map(t=>'#'+t).join(' '))).join(', ')||'none'}
+Struggles: ${s.struggles.map(x=>x.area+' ('+x.severity+'): '+x.detail).join(' | ')||'none'}
+Exercise history: ${s.exercises.map(e=>e.name+' ['+e.status+']: '+e.notes).join(' | ')||'none'}
+Recent wins: ${analyzed.flatMap(n=>n.analysis?.wins||[]).slice(0,5).join('; ')||'none'}`;
+}
+
+// ── MODAL ─────────────────────────────────────────────────
+let modalType=null;
+function openModal(type){
+  modalType=type;
+  const titles={student:'Add student',song:'Add song',struggle:'Log struggle',exercise:'Log exercise',goal:'Add goal',libsong:'Add song to library',libexercise:'Add exercise to library'};
+  let html=`<h3>${titles[type]||type}</h3>`;
+  if(type==='student'){
+    html+=`<div class="field"><label>Name</label><input id="m-name" placeholder="Full name"></div>
+    <div class="field"><label>Level</label><select id="m-level"><option>Beginner</option><option>Intermediate</option><option>Advanced</option><option>Professional</option></select></div>
+    <div class="field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="m-private" style="width:auto;"> Private studio student</label></div>
+    <div class="field"><label>Initial goals (one per line)</label><textarea id="m-goals" placeholder="Develop mix voice&#10;Extend range to C5"></textarea></div>`;
+  } else if(type==='song'){
+    html+=`<div class="field"><label>Song title</label><input id="m-title" placeholder="e.g. The Climb"></div>
+    <div class="field"><label>Key</label><input id="m-key" placeholder="e.g. G, Bb, C#m"></div>
+    <div class="field"><label>Notes</label><textarea id="m-notes" placeholder="What are they working on?"></textarea></div>
+    <div class="field"><label>Tags (comma separated)</label><input id="m-tags" placeholder="belt, passaggio, breath"></div>`;
+  } else if(type==='struggle'){
+    html+=`<div class="field"><label>Area of struggle</label><input id="m-area" placeholder="e.g. Passaggio transitions"></div>
+    <div class="field"><label>Details</label><textarea id="m-detail" placeholder="Describe what's happening..."></textarea></div>
+    <div class="field"><label>Severity</label><select id="m-sev"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>`;
+  } else if(type==='exercise'){
+    html+=`<div class="field"><label>Exercise name</label><input id="m-name" placeholder="e.g. Lip trill scales"></div>
+    <div class="field"><label>Pattern / how to do it</label><input id="m-pattern" placeholder="e.g. 1-2-3-4-5-4-3-2-1"></div>
+    <div class="field"><label>Notes</label><textarea id="m-notes" placeholder="Observations..."></textarea></div>
+    <div class="field"><label>Status</label><select id="m-status"><option value="pending">Pending</option><option value="partial">In progress</option><option value="success">Mastered</option><option value="struggle">Not working</option></select></div>`;
+  } else if(type==='goal'){
+    html+=`<div class="field"><label>Goal</label><input id="m-goal" placeholder="e.g. Extend range to high C"></div>`;
+  } else if(type==='libsong'){
+    html+=`<div class="field"><label>Song title</label><input id="m-title" placeholder="e.g. Defying Gravity"></div>
+    <div class="field"><label>Composer / show</label><input id="m-composer" placeholder="e.g. Schwartz / Wicked"></div>
+    <div class="field"><label>Key</label><input id="m-key" placeholder="e.g. Bb"></div>
+    <div class="field"><label>Tags (comma separated)</label><input id="m-tags" placeholder="belt, passaggio, mix, musical-theatre"></div>
+    <div class="field"><label>What's it good for?</label><textarea id="m-notes" placeholder="Notes on what vocal challenges this song addresses..."></textarea></div>`;
+  } else if(type==='libexercise'){
+    html+=`<div class="field"><label>Exercise name</label><input id="m-name" placeholder="e.g. Lip trill scales"></div>
+    <div class="field"><label>Pattern / instructions</label><input id="m-pattern" placeholder="e.g. 1-2-3-4-5-4-3-2-1"></div>
+    <div class="field"><label>Tags (comma separated)</label><input id="m-tags" placeholder="warm-up, breath, passaggio, registration"></div>
+    <div class="field"><label>What does it do / when to use it?</label><textarea id="m-notes" placeholder="Describe the purpose and best use cases..."></textarea></div>`;
+  }
+  html+=`<div class="modal-actions"><button class="btn-cancel" onclick="closeModal()">Cancel</button><button class="btn-save" onclick="submitModal()">Save</button></div>`;
+  document.getElementById('modal-box').innerHTML=html;
+  document.getElementById('modal-bg').classList.add('open');
+  setTimeout(()=>{const f=document.getElementById('modal-box').querySelector('input,textarea');if(f)f.focus();},50);
+}
+function closeModal(){document.getElementById('modal-bg').classList.remove('open');modalType=null;}
+function closeBg(e){if(e.target===document.getElementById('modal-bg'))closeModal();}
+function v(id){const el=document.getElementById(id);return el?el.value.trim():'';}
+function parseTags(str){return str.split(',').map(t=>t.trim().toLowerCase().replace(/\s+/g,'-').replace(/^#/,'')).filter(Boolean);}
+
+function submitModal(){
+  const type=modalType;
+  if(type==='student'){
+    const name=v('m-name');if(!name)return;
+    const isPrivate=document.getElementById('m-private')?.checked||false;
+    DB.students.push({id:Date.now(),name,level:v('m-level'),colorIdx:DB.students.length,isPrivate,goals:v('m-goals').split('\n').map(g=>g.trim()).filter(Boolean),songs:[],struggles:[],exercises:[],sessionNotes:[],chatHistory:[],lessonPlan:null});
+    DB.activeId=DB.students[DB.students.length-1].id; DB.activeTab='dashboard'; DB.view='student';
+  } else if(type==='libsong'){
+    DB.library.songs.push({id:uid(),title:v('m-title')||'Untitled',composer:v('m-composer'),key:v('m-key')||'?',tags:parseTags(v('m-tags')),notes:v('m-notes')});
+  } else if(type==='libexercise'){
+    DB.library.exercises.push({id:uid(),name:v('m-name')||'Exercise',pattern:v('m-pattern'),tags:parseTags(v('m-tags')),notes:v('m-notes')});
+  } else {
+    const s=getActive();if(!s)return;
+    if(type==='song') s.songs.push({title:v('m-title')||'Untitled',key:v('m-key')||'?',notes:v('m-notes'),tags:parseTags(v('m-tags')),archived:false});
+    else if(type==='struggle') s.struggles.push({area:v('m-area')||'Unnamed',detail:v('m-detail'),severity:v('m-sev')||'medium'});
+    else if(type==='exercise') s.exercises.push({name:v('m-name')||'Exercise',pattern:v('m-pattern'),notes:v('m-notes'),status:v('m-status')||'pending'});
+    else if(type==='goal'){const g=v('m-goal');if(g)s.goals.push(g);}
+  }
+  save();closeModal();renderSidebar();
+  if(DB.view==='library') renderLibraryPanel();
+  else renderPanels();
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') closeModal();
+  if(e.key==='Enter'&&e.target.tagName!=='TEXTAREA'&&document.getElementById('modal-bg').classList.contains('open')) submitModal();
+});
+
+// ── Init ──────────────────────────────────────────────────
+load();
+const _gk=loadApiKey('gemini'); if(_gk) document.getElementById('api-key-input').value=_gk;
+const _ep=loadApiKey('ejspub'); if(_ep) document.getElementById('ejs-public-key').value=_ep;
+const _es=loadApiKey('ejssvc'); if(_es) document.getElementById('ejs-service-id').value=_es;
+const _et=loadApiKey('ejstpl'); if(_et) document.getElementById('ejs-template-id').value=_et;
+const _se=loadApiKey('senderemail'); if(_se) document.getElementById('sender-email').value=_se;
+renderSidebar();
+renderPanels();
+</script>
+</body>
+</html>
