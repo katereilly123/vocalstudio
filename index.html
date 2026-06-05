@@ -7,6 +7,17 @@
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  #lock-screen { position: fixed; inset: 0; background: #1a1a2e; display: flex; align-items: center; justify-content: center; z-index: 9999; flex-direction: column; gap: 0; }
+  #lock-screen.hidden { display: none; }
+  .lock-card { background: white; border-radius: 16px; padding: 36px 32px; width: 320px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+  .lock-icon { font-size: 40px; margin-bottom: 12px; }
+  .lock-title { font-size: 20px; font-weight: 700; color: #1a1a1a; margin-bottom: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .lock-subtitle { font-size: 13px; color: #888; margin-bottom: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .lock-input { width: 100%; padding: 11px 14px; border: 1.5px solid #e0e0e0; border-radius: 10px; font-size: 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; outline: none; text-align: center; letter-spacing: 0.1em; margin-bottom: 12px; transition: border 0.15s; }
+  .lock-input:focus { border-color: #534AB7; }
+  .lock-btn { width: 100%; padding: 11px; background: #534AB7; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; transition: background 0.15s; }
+  .lock-btn:hover { background: #3C3489; }
+  .lock-error { font-size: 12px; color: #D85A30; margin-top: 10px; min-height: 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   :root {
     --bg: #ffffff; --bg2: #f7f6f3; --bg3: #f0efe9;
     --text: #1a1a1a; --text2: #666; --text3: #999;
@@ -245,6 +256,19 @@
 </style>
 </head>
 <body>
+
+<!-- LOCK SCREEN -->
+<div id="lock-screen">
+  <div class="lock-card">
+    <div class="lock-icon">🎤</div>
+    <div class="lock-title">Voice Studio</div>
+    <div class="lock-subtitle">Enter your password to continue</div>
+    <input class="lock-input" type="password" id="lock-input" placeholder="Password" onkeydown="lockKeydown(event)" autofocus>
+    <button class="lock-btn" onclick="checkPassword()">Unlock</button>
+    <div class="lock-error" id="lock-error"></div>
+  </div>
+</div>
+
 <div class="app">
   <!-- SIDEBAR -->
   <div class="sidebar">
@@ -1168,6 +1192,25 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape') closeModal();
   if(e.key==='Enter'&&e.target.tagName!=='TEXTAREA'&&document.getElementById('modal-bg').classList.contains('open')) submitModal();
 });
+
+// ── Password ──────────────────────────────────────────────
+const APP_PASSWORD = 'vocalstudio2024'; // ← change this to whatever you want
+function checkPassword(){
+  const input=document.getElementById('lock-input').value;
+  if(input===APP_PASSWORD){
+    try{ sessionStorage.setItem('vst_auth','1'); }catch(e){}
+    document.getElementById('lock-screen').classList.add('hidden');
+  } else {
+    document.getElementById('lock-error').textContent='Incorrect password — try again.';
+    document.getElementById('lock-input').value='';
+    document.getElementById('lock-input').focus();
+  }
+}
+function lockKeydown(e){ if(e.key==='Enter') checkPassword(); }
+// Check if already authenticated this session
+if(sessionStorage.getItem('vst_auth')==='1'){
+  document.getElementById('lock-screen').classList.add('hidden');
+}
 
 // ── Init ──────────────────────────────────────────────────
 load();
