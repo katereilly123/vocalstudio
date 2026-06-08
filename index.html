@@ -303,11 +303,11 @@
     <div class="nav-btn" id="diagnosis-btn" onclick="gotoView('diagnosis')">🩺 Diagnosis Templates</div>
     <div class="sidebar-divider"></div>
     <div class="settings-area">
-      <div class="api-toggle" onclick="toggleSettings()">⚙ Settings</div>
+      <div class="api-toggle" id="settings-toggle" onclick="toggleSettings()">⚙ Settings</div>
       <div class="api-input-wrap" id="api-wrap">
         <div class="settings-group" style="margin-top:6px;">
           <div class="settings-group-title">Gemini AI</div>
-          <input type="password" id="api-key-input" placeholder="Gemini API key" oninput="saveApiKey('gemini',this.value)">
+          <input type="password" id="api-key-input" placeholder="Gemini API key" oninput="saveApiKey('gemini',this.value);document.getElementById('settings-toggle').textContent=this.value?'⚙ Settings · ✓ Gemini key saved':'⚙ Settings (add Gemini key to use AI)'">
           <div class="api-hint">Free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com</a></div>
         </div>
         <div class="settings-group" style="margin-top:10px;">
@@ -588,6 +588,7 @@ function migrateDB(){
 function saveApiKey(k,v){ try{ localStorage.setItem('vstkey_'+k,v); }catch(e){} }
 function loadApiKey(k){ try{ return localStorage.getItem('vstkey_'+k)||''; }catch(e){ return ''; } }
 function toggleSettings(){ document.getElementById('api-wrap').classList.toggle('open'); }
+function hasGeminiKey(){ return !!(document.getElementById('api-key-input')?.value||loadApiKey('gemini')); }
 function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function geminiKey(){ return (document.getElementById('api-key-input')?.value||loadApiKey('gemini')).trim(); }
 function initials(n){ return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
@@ -880,11 +881,11 @@ async function sendChat(){
     for(let i=1;i<history.length;i++){ contents.push({role:history[i].role==='user'?'user':'model',parts:[{text:history[i].content}]}); }
   }
   try{
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents,generationConfig:{temperature:0.6,maxOutputTokens:500}})});
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents,generationConfig:{temperature:0.6,maxOutputTokens:500}})});
     const data=await res.json();
-    if(data.error) s.chatHistory.push({role:'assistant',content:'⚠ '+data.error.message});
+    if(data.error) s.chatHistory.push({role:'assistant',content:'⚠ API error: '+data.error.message+'\n\nCheck that your Gemini API key is correct in ⚙ Settings.'});
     else s.chatHistory.push({role:'assistant',content:data.candidates?.[0]?.content?.parts?.[0]?.text||'No response.'});
-  }catch(e){ s.chatHistory.push({role:'assistant',content:'⚠ Could not reach Gemini.'}); }
+  }catch(e){ s.chatHistory.push({role:'assistant',content:'⚠ Could not reach Gemini: '+(e.message||'network error')+'\n\nCheck your API key in ⚙ Settings.'}); }
   save();
   document.getElementById('chat-send-btn').disabled=false;
   const el=document.getElementById('chat-messages');
@@ -1185,7 +1186,7 @@ async function analyzeNote(i){
   const note=s.sessionNotes[i];
   const prompt=`You are a vocal coach assistant. Parse these session notes for student "${s.name}" (${s.level}).\nGoals: ${s.goals.join('; ')||'none'}\nStruggles: ${s.struggles.map(x=>x.area).join(', ')||'none'}\nExercises: ${s.exercises.map(e=>e.name+' ['+e.status+']').join(', ')||'none'}\n\nNotes: """${note.text}"""\n\nRespond ONLY with raw JSON:\n{"summary":"1 sentence","wins":["specific win"],"goals":["suggested goal"],"struggles":[{"area":"","detail":"","severity":"low|medium|high"}],"exercises":[{"name":"","pattern":""}]}`;
   try{
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.4}})});
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.4}})});
     const data=await res.json();
     if(data.error) s.sessionNotes[i].analysis={error:'Gemini: '+data.error.message};
     else s.sessionNotes[i].analysis=JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g,'').trim()||'{}');
@@ -1318,7 +1319,7 @@ async function generateLessonPlan(){
   const libEx=DB.library.exercises.filter(le=>le.instrument==='Both'||le.instrument===s.instrument||!le.instrument).map(e=>e.name+' ['+e.tags.join(',')+'] — '+e.notes).join('\n');
   const prompt=`You are an expert vocal coach. Build a practical lesson plan.\n\n${buildStudentContext(s)}\n\nTEACHER'S EXERCISE LIBRARY:\n${libEx}\n\nMost recent notes:\n${recentNotes||'None yet.'}\n\nPrioritize what came up most recently. Be specific. Respond ONLY with raw JSON:\n{"overview":"2-3 sentence focus summary","warmup":[{"name":"","instruction":"","why":""}],"focus":[{"name":"","instruction":"","why":""}],"repertoire":[{"name":"song + section","instruction":""}],"cooldown":[{"name":"","instruction":""}],"watchFor":"one key observation"}`;
   try{
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.5}})});
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.5}})});
     const data=await res.json();
     if(data.error) s.lessonPlan={error:'Gemini: '+data.error.message,generatedAt:Date.now()};
     else s.lessonPlan={...JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g,'').trim()||'{}'),generatedAt:Date.now()};
@@ -1459,7 +1460,7 @@ Successful exercises: ${s.exercises.filter(e=>e.status==='success').map(e=>e.nam
 Not working: ${s.exercises.filter(e=>e.status==='struggle').map(e=>e.name).join(', ')||'none'}`).join('\n\n---\n\n');
   const prompt=`You are a voice teacher supervisor. Analyze these students and find cross-student patterns.\n\n${summary}\n\nRespond ONLY with raw JSON:\n{"patterns":[{"title":"pattern title","body":"2-3 sentence observation about what you see across students"}],"opportunities":[{"title":"opportunity title","body":"a specific way to help multiple students at once"}],"summary":"2 sentence overall studio health note"}`;
   try{
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.5,maxOutputTokens:1000}})});
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.5,maxOutputTokens:1000}})});
     const data=await res.json();
     if(data.error){el.innerHTML=`<div class="ai-error">⚠ ${esc(data.error.message)}</div>`;return;}
     const result=JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g,'').trim()||'{}');
@@ -1696,6 +1697,9 @@ const _et=loadApiKey('ejstpl'); if(_et) document.getElementById('ejs-template-id
 const _se=loadApiKey('senderemail'); if(_se) document.getElementById('sender-email').value=_se;
 renderSidebar();
 renderPanels();
+// Auto-open settings if no Gemini key is saved yet
+if(!loadApiKey('gemini')){ document.getElementById('api-wrap').classList.add('open'); document.getElementById('settings-toggle').textContent='⚙ Settings (add Gemini key to use AI)'; }
+else { document.getElementById('settings-toggle').textContent='⚙ Settings · ✓ Gemini key saved'; }
 </script>
 </body>
 </html>
