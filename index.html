@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Voice Studio Tracker</title>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   #lock-screen { position: fixed; inset: 0; background: #1a1a2e; display: flex; align-items: center; justify-content: center; z-index: 9999; flex-direction: column; gap: 0; }
@@ -29,6 +30,7 @@
     --amber-bg: #FAEEDA; --amber: #854F0B; --amber-mid: #EF9F27;
     --lime-bg: #EAF3DE; --lime: #3B6D11;
     --gray-bg: #F1EFE8; --gray: #5F5E5A;
+    --teal-bg: #E0F4F4; --teal: #0A6B6B; --teal-mid: #17A2A2;
     --radius: 8px; --radius-lg: 12px;
     --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
@@ -39,13 +41,11 @@
       --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.2);
       --purple-light: #2a2760; --purple-text: #CCC8F0;
       --green-bg: #0d2e22; --coral-bg: #2e1a12; --amber-bg: #2e1f08;
-      --lime-bg: #182808; --gray-bg: #2a2a2a;
+      --lime-bg: #182808; --gray-bg: #2a2a2a; --teal-bg: #0d2a2a;
     }
   }
   body { font-family: var(--font); background: var(--bg3); color: var(--text); font-size: 14px; min-height: 100vh; }
   .app { display: flex; height: 100vh; overflow: hidden; }
-
-  /* Sidebar */
   .sidebar { width: 220px; flex-shrink: 0; background: var(--bg2); border-right: 0.5px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
   .sidebar-top { padding: 16px 14px 12px; border-bottom: 0.5px solid var(--border); }
   .app-title { font-size: 15px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
@@ -58,12 +58,18 @@
   .s-name { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .s-level { font-size: 11px; color: var(--text3); }
   .private-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; background: var(--purple-light); color: var(--purple); padding: 1px 5px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
+  .instrument-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 5px; border-radius: 4px; margin-left: 2px; vertical-align: middle; }
+  .instrument-badge.voice { background: var(--purple-light); color: var(--purple); }
+  .instrument-badge.keys { background: var(--teal-bg); color: var(--teal); }
   .add-student-btn { margin: 6px 12px 4px; padding: 8px; border: 1px dashed var(--border2); border-radius: var(--radius); background: none; color: var(--text2); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: all 0.1s; font-family: var(--font); }
   .add-student-btn:hover { background: var(--bg); color: var(--text); }
   .sidebar-divider { height: 0.5px; background: var(--border); margin: 8px 0; }
   .library-btn { display: flex; align-items: center; gap: 8px; padding: 9px 14px; cursor: pointer; border-left: 2px solid transparent; font-size: 13px; color: var(--text2); transition: background 0.1s; }
   .library-btn:hover { background: var(--bg); color: var(--text); }
   .library-btn.active { background: var(--bg); border-left-color: var(--amber-mid); color: var(--text); font-weight: 500; }
+  .nav-btn { display: flex; align-items: center; gap: 8px; padding: 9px 14px; cursor: pointer; border-left: 2px solid transparent; font-size: 13px; color: var(--text2); transition: background 0.1s; }
+  .nav-btn:hover { background: var(--bg); color: var(--text); }
+  .nav-btn.active { background: var(--bg); border-left-color: var(--purple-mid); color: var(--text); font-weight: 500; }
   .settings-area { padding: 10px 12px; border-top: 0.5px solid var(--border); }
   .api-toggle { font-size: 11px; color: var(--text3); cursor: pointer; padding: 4px 0; }
   .api-toggle:hover { color: var(--text2); }
@@ -89,27 +95,26 @@
   .note-send-status { font-size: 12px; margin-top: 6px; }
   .note-send-status.ok { color: var(--green); }
   .note-send-status.err { color: var(--coral); }
-
-  /* Main */
+  .gdrive-btn { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: var(--radius); font-size: 11px; cursor: pointer; border: 0.5px solid var(--border2); background: var(--bg); color: var(--text2); font-family: var(--font); font-weight: 500; transition: all 0.15s; margin: 4px 12px 0; }
+  .gdrive-btn:hover { border-color: var(--green-mid); color: var(--green); }
+  .gdrive-btn.connected { border-color: var(--green-mid); color: var(--green); background: var(--green-bg); }
   .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); min-width: 0; }
   .main-header { padding: 14px 20px; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
   .avatar-lg { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; flex-shrink: 0; }
   .hdr-name { font-size: 17px; font-weight: 600; }
   .hdr-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
-
-  /* Tabs */
   .tab-bar { display: flex; border-bottom: 0.5px solid var(--border); flex-shrink: 0; background: var(--bg); overflow-x: auto; }
   .tab { padding: 10px 15px; font-size: 13px; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.1s; }
   .tab:hover { color: var(--text); }
   .tab.active { color: var(--purple); border-bottom-color: var(--purple); font-weight: 500; }
   .tab-content { flex: 1; overflow-y: auto; padding: 20px; }
-
-  /* Sub-tabs (library) */
   .subtab-bar { display: flex; gap: 2px; margin-bottom: 18px; background: var(--bg2); border-radius: var(--radius); padding: 3px; width: fit-content; }
   .subtab { padding: 7px 16px; font-size: 13px; border-radius: 6px; cursor: pointer; color: var(--text2); transition: all 0.1s; }
   .subtab.active { background: var(--bg); color: var(--text); font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-
-  /* Cards / common */
+  .filter-chips { display: flex; gap: 6px; margin-bottom: 14px; }
+  .filter-chip { padding: 5px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text2); font-family: var(--font); transition: all 0.1s; }
+  .filter-chip.active { background: var(--purple); color: white; border-color: var(--purple); }
+  .filter-chip.keys-active { background: var(--teal-mid); color: white; border-color: var(--teal-mid); }
   .section-label { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
   .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 10px; }
   .card-title { font-size: 14px; font-weight: 500; }
@@ -121,6 +126,7 @@
   .badge-amber { background: var(--amber-bg); color: var(--amber); }
   .badge-purple { background: var(--purple-light); color: var(--purple-dark); }
   .badge-gray { background: var(--gray-bg); color: var(--gray); }
+  .badge-teal { background: var(--teal-bg); color: var(--teal); }
   .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .dot-green { background: var(--green-mid); }
   .dot-amber { background: var(--amber-mid); }
@@ -141,15 +147,12 @@
   .ex-name { font-size: 13px; font-weight: 500; }
   .ex-detail { font-size: 11px; color: var(--text2); margin-top: 2px; }
   .empty-state { text-align: center; padding: 40px 20px; color: var(--text2); font-size: 14px; }
-
-  /* Hashtags */
   .hashtag { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 12px; background: var(--purple-light); color: var(--purple-dark); font-size: 11px; margin: 2px; }
   .hashtag.amber { background: var(--amber-bg); color: var(--amber); }
+  .hashtag.teal { background: var(--teal-bg); color: var(--teal); }
   .hashtag-input-wrap { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
   .hashtag-input { padding: 4px 8px; border: 0.5px solid var(--border2); border-radius: 12px; font-size: 12px; background: var(--bg2); color: var(--text); font-family: var(--font); width: 130px; }
   .hashtag-input:focus { outline: none; border-color: var(--purple); }
-
-  /* AI / spinner */
   .spinner { width: 14px; height: 14px; border: 2px solid var(--purple-mid); border-top-color: var(--purple); border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; flex-shrink: 0; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .ai-box { background: var(--purple-light); border: 0.5px solid var(--purple-mid); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 14px; }
@@ -164,8 +167,6 @@
   .suggestion-text { font-size: 13px; color: var(--purple-text); flex: 1; line-height: 1.5; }
   .analysis-section-title { font-size: 11px; font-weight: 600; color: var(--purple-dark); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 7px; margin-top: 10px; }
   .analysis-box { background: var(--purple-light); border: 0.5px solid var(--purple-mid); border-radius: var(--radius-lg); padding: 14px 16px; margin-top: 10px; }
-
-  /* Chat */
   .chat-wrap { display: flex; flex-direction: column; border: 0.5px solid var(--border2); border-radius: var(--radius-lg); overflow: hidden; background: var(--bg2); }
   .chat-messages { overflow-y: auto; padding: 12px; max-height: 300px; min-height: 100px; display: flex; flex-direction: column; gap: 8px; }
   .chat-msg { max-width: 88%; padding: 9px 12px; border-radius: 12px; font-size: 13px; line-height: 1.6; }
@@ -180,18 +181,12 @@
   .chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .chat-clear-btn { font-size: 11px; color: var(--text3); background: none; border: none; cursor: pointer; padding: 2px 6px; font-family: var(--font); }
   .chat-clear-btn:hover { color: var(--coral); }
-
-  /* Dashboard song/goal cards */
   .dash-song { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 0.5px solid var(--border); }
   .dash-song:last-child { border-bottom: none; }
   .dash-song-title { font-size: 13px; font-weight: 500; }
   .dash-song-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
-
-  /* Songs */
   .related-songs-box { background: var(--lime-bg); border: 0.5px solid #97C459; border-radius: var(--radius); padding: 9px 12px; margin-top: 8px; font-size: 12px; color: var(--lime); }
   .archive-song-card { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 8px; }
-
-  /* Notes */
   .win-card { background: var(--lime-bg); border: 0.5px solid #97C459; border-radius: var(--radius); padding: 9px 14px; margin-bottom: 7px; font-size: 13px; color: var(--lime); }
   .struggle-mini { background: var(--coral-bg); border: 0.5px solid #F0997B; border-radius: var(--radius); padding: 9px 14px; margin-bottom: 7px; }
   .struggle-mini-title { font-size: 13px; font-weight: 500; color: var(--coral); }
@@ -205,8 +200,16 @@
   .highlight-struggle { background: rgba(208,90,48,0.12); border-radius: 3px; padding: 0 2px; color: var(--coral); }
   .highlight-win { background: rgba(59,109,17,0.1); border-radius: 3px; padding: 0 2px; color: var(--lime); }
   .highlight-exercise { background: rgba(83,74,183,0.1); border-radius: 3px; padding: 0 2px; color: var(--purple); }
-
-  /* Lesson plan */
+  .session-log-entry { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 8px; }
+  .session-log-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .star-rating { display: flex; gap: 3px; }
+  .star { font-size: 16px; cursor: pointer; opacity: 0.3; transition: opacity 0.1s; }
+  .star.lit { opacity: 1; }
+  .problem-points-area { width: 100%; padding: 6px 8px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg2); color: var(--text); font-size: 12px; font-family: var(--font); resize: vertical; min-height: 44px; margin-top: 6px; }
+  .problem-points-area:focus { outline: none; border-color: var(--coral-mid); }
+  .problem-point-label { font-size: 10px; font-weight: 600; color: var(--coral); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 8px; margin-bottom: 3px; }
+  .struggle-link-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 12px; background: var(--coral-bg); color: var(--coral); font-size: 11px; margin: 2px; }
+  .goal-link-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 12px; background: var(--green-bg); color: var(--green); font-size: 11px; margin: 2px; }
   .lesson-section { margin-bottom: 16px; }
   .lesson-section-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 7px; }
   .lesson-item { padding: 8px 12px; background: var(--bg2); border-radius: var(--radius); margin-bottom: 6px; font-size: 13px; line-height: 1.6; border-left: 3px solid var(--purple); }
@@ -215,8 +218,6 @@
   .lesson-item.song { border-left-color: var(--green-mid); }
   .lesson-item.cool { border-left-color: var(--purple-mid); }
   .lesson-note { font-size: 12px; color: var(--text2); margin-top: 3px; }
-
-  /* Library */
   .lib-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 13px 15px; margin-bottom: 9px; }
   .lib-card-title { font-size: 14px; font-weight: 500; }
   .lib-card-meta { font-size: 12px; color: var(--text2); margin-top: 3px; }
@@ -225,8 +226,20 @@
   .lib-assign-btn:hover { background: var(--green-mid); color: white; }
   .search-input { width: 100%; padding: 8px 12px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg2); color: var(--text); font-size: 13px; font-family: var(--font); margin-bottom: 14px; }
   .search-input:focus { outline: none; border-color: var(--purple); }
-
-  /* Picker modal overlay */
+  .curriculum-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+  .curriculum-item:last-child { border-bottom: none; }
+  .curriculum-item input[type=checkbox] { accent-color: var(--green); width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
+  .curriculum-item.done span { text-decoration: line-through; color: var(--text3); }
+  .curriculum-progress-bar { height: 6px; background: var(--border2); border-radius: 3px; margin-bottom: 6px; overflow: hidden; }
+  .curriculum-progress-fill { height: 100%; background: var(--green-mid); border-radius: 3px; transition: width 0.3s; }
+  .curriculum-level-block { margin-bottom: 18px; }
+  .curriculum-level-title { font-size: 12px; font-weight: 600; color: var(--text2); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+  .diagnosis-card { border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 10px; background: var(--bg); }
+  .diagnosis-card-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .diagnosis-card-meta { font-size: 12px; color: var(--text2); margin-bottom: 10px; }
+  .pattern-card { background: var(--purple-light); border: 0.5px solid var(--purple-mid); border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 10px; }
+  .pattern-card-title { font-size: 13px; font-weight: 600; color: var(--purple-dark); margin-bottom: 6px; }
+  .pattern-card-body { font-size: 13px; color: var(--purple-text); line-height: 1.6; }
   .picker-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 300; }
   .picker-bg.open { display: flex; }
   .picker-modal { background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--radius-lg); padding: 20px; width: 420px; max-width: 95vw; max-height: 80vh; display: flex; flex-direction: column; }
@@ -237,11 +250,9 @@
   .picker-item-info { flex: 1; min-width: 0; }
   .picker-item-name { font-size: 13px; font-weight: 500; }
   .picker-item-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
-
-  /* Modal */
   .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 200; }
   .modal-bg.open { display: flex; }
-  .modal { background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--radius-lg); padding: 22px; width: 380px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+  .modal { background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--radius-lg); padding: 22px; width: 400px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
   .modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
   .field { margin-bottom: 13px; }
   .field label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 5px; font-weight: 500; }
@@ -252,6 +263,8 @@
   .btn-save:hover { background: var(--purple-dark); }
   .btn-cancel { padding: 8px 16px; background: none; border: 0.5px solid var(--border2); border-radius: var(--radius); font-size: 13px; cursor: pointer; color: var(--text2); font-family: var(--font); }
   #no-student { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; color: var(--text2); }
+  .archived-section { opacity: 0.7; }
+  .archived-student-item { border-left-color: var(--gray) !important; }
   @media (max-width: 640px) { .sidebar { width: 180px; } }
 </style>
 </head>
@@ -275,12 +288,19 @@
     <div class="sidebar-top">
       <div class="app-title">🎤 Voice Studio</div>
     </div>
+    <div id="gdrive-area">
+      <button class="gdrive-btn" id="gdrive-btn" onclick="toggleGDrive()">☁ Connect Google Drive</button>
+    </div>
     <div class="sidebar-section-label">Students</div>
     <div class="student-list" id="student-list"></div>
+    <div id="archived-toggle-row" style="padding:0 12px 4px;"></div>
+    <div id="archived-list" style="display:none;"></div>
     <button class="add-student-btn" onclick="openModal('student')">+ Add student</button>
     <div class="sidebar-divider"></div>
-    <div class="sidebar-section-label">Library</div>
-    <div class="library-btn" id="lib-btn" onclick="selectLibrary()">📚 Song & Exercise Library</div>
+    <div class="sidebar-section-label">Library & Tools</div>
+    <div class="library-btn" id="lib-btn" onclick="gotoView('library')">📚 Song & Exercise Library</div>
+    <div class="nav-btn" id="patterns-btn" onclick="gotoView('patterns')">🧠 Pattern Awareness</div>
+    <div class="nav-btn" id="diagnosis-btn" onclick="gotoView('diagnosis')">🩺 Diagnosis Templates</div>
     <div class="sidebar-divider"></div>
     <div class="settings-area">
       <div class="api-toggle" onclick="toggleSettings()">⚙ Settings</div>
@@ -325,6 +345,7 @@
       <div class="tab" id="tab-songs" onclick="switchTab('songs')">🎵 Songs</div>
       <div class="tab" id="tab-notes" onclick="switchTab('notes')">📝 Notes</div>
       <div class="tab" id="tab-exercises" onclick="switchTab('exercises')">✅ Exercises</div>
+      <div class="tab" id="tab-curriculum" onclick="switchTab('curriculum')">📖 Curriculum</div>
       <div class="tab" id="tab-lessonplan" onclick="switchTab('lessonplan')">🎯 Lesson Plan</div>
     </div>
     <div class="tab-content" id="tab-content"></div>
@@ -341,6 +362,30 @@
     </div>
     <div class="tab-content" id="library-content"></div>
   </div>
+
+  <!-- PATTERNS PANEL -->
+  <div id="patterns-panel" class="main" style="display:none;">
+    <div class="main-header">
+      <div style="font-size:28px;">🧠</div>
+      <div>
+        <div class="hdr-name">Cross-Student Pattern Awareness</div>
+        <div class="hdr-sub">AI analysis of themes across all your students</div>
+      </div>
+    </div>
+    <div class="tab-content" id="patterns-content"></div>
+  </div>
+
+  <!-- DIAGNOSIS PANEL -->
+  <div id="diagnosis-panel" class="main" style="display:none;">
+    <div class="main-header">
+      <div style="font-size:28px;">🩺</div>
+      <div>
+        <div class="hdr-name">Diagnosis &amp; Treatment Templates</div>
+        <div class="hdr-sub">Pre-built exercise packages — apply to a student instantly</div>
+      </div>
+    </div>
+    <div class="tab-content" id="diagnosis-content"></div>
+  </div>
 </div>
 
 <!-- PICKERS -->
@@ -352,7 +397,6 @@
     <div style="margin-top:12px;"><button class="btn-cancel" onclick="document.getElementById('song-picker-bg').classList.remove('open')">Close</button></div>
   </div>
 </div>
-
 <div class="picker-bg" id="ex-picker-bg" onclick="closeExPicker(event)">
   <div class="picker-modal">
     <h3>Add exercise from library</h3>
@@ -361,13 +405,20 @@
     <div style="margin-top:12px;"><button class="btn-cancel" onclick="document.getElementById('ex-picker-bg').classList.remove('open')">Close</button></div>
   </div>
 </div>
-
+<div class="picker-bg" id="session-ex-picker-bg" onclick="closeSessionExPicker(event)">
+  <div class="picker-modal">
+    <h3>Log exercise used this session</h3>
+    <input class="search-input" id="session-ex-search" placeholder="Search exercises…" oninput="renderSessionExPicker()">
+    <div class="picker-list" id="session-ex-picker-list"></div>
+    <div style="margin-top:12px;"><button class="btn-cancel" onclick="document.getElementById('session-ex-picker-bg').classList.remove('open')">Close</button></div>
+  </div>
+</div>
 <!-- MAIN MODAL -->
 <div class="modal-bg" id="modal-bg" onclick="closeBg(event)">
   <div class="modal" id="modal-box"></div>
 </div>
-
 <script>
+// ── Constants ───────────────────────────────────────────────
 const COLORS=[
   {bg:'#EEEDFE',color:'#534AB7'},{bg:'#E1F5EE',color:'#0F6E56'},
   {bg:'#FAECE7',color:'#993C1D'},{bg:'#FAEEDA',color:'#854F0B'},
@@ -375,14 +426,86 @@ const COLORS=[
   {bg:'#FBEAF0',color:'#993556'},{bg:'#F1EFE8',color:'#5F5E5A'}
 ];
 
+const CURRICULUM_LEVELS={
+  Voice:{
+    Beginner:['Diaphragmatic breathing basics','Hissing breath exercises','Five-tone scales (do-re-mi-fa-sol)','Lip trill warm-up','Find and stabilize head voice','Siren slides (chest to head)'],
+    Intermediate:['Passaggio navigation exercises','Messa di voce (pp to ff and back)','Octave arpeggios','Mix voice development','Legato phrase work','Dynamic control on scales'],
+    Advanced:['Full range two-octave scales','Coloratura agility exercises','Sustained pianissimo high notes','Belt technique with support','Performance stamina sets','Vibrato development and control']
+  },
+  Keys:{
+    Beginner:['Hanon exercises #1-5','Scales: C, G, D major (hands separate)','Basic chord triads (I-IV-V)','Simple contrary motion scales','Sight-reading whole and half notes','Proper hand position and posture'],
+    Intermediate:['Scales: all major, hands together','Arpeggios: major and minor','Chord inversions (all positions)','Sight-reading dotted rhythms','Finger independence exercises (Hanon 20-30)','Basic improvisation over blues scale'],
+    Advanced:['Harmonic and melodic minor scales','Advanced arpeggio patterns (4 octaves)','Sight-reading complex rhythms','Jazz chord voicings','Polyrhythm exercises (3 against 2)','Repertoire performance stamina']
+  }
+};
+
+const DIAGNOSIS_TEMPLATES=[
+  {
+    id:'passaggio',name:'Passaggio Breakthrough Pack',instrument:'Voice',
+    description:'Targeted exercises to smooth out the break and develop consistent mix voice through the passaggio.',
+    exercises:[
+      {name:'Siren slides',pattern:'Glide from chest to head on "wee"',notes:'Removes gear-shift mentality. Focus on evenness.'},
+      {name:'Lip trill through passaggio',pattern:'1-2-3-4-5-4-3-2-1 at medium tempo',notes:'Reduces tension at the break. Do on comfortable pitches first.'},
+      {name:'Ng hum scales',pattern:'Sustained "ng" sliding through break',notes:'Encourages cord closure and mix. Very gentle on mechanism.'},
+      {name:'Messa di voce on passaggio note',pattern:'Sustained target note, swell and fade',notes:'Train dynamic control right at the break.'}
+    ],
+    struggles:['Passaggio transitions']
+  },
+  {
+    id:'breath',name:'Breath Support Foundation',instrument:'Both',
+    description:'Builds the breath support infrastructure needed for consistent, powerful, and controlled singing or playing.',
+    exercises:[
+      {name:'Hissing breath',pattern:'Sustained "s" 10-20 seconds, even release',notes:'Establishes connection to support without vocal folds.'},
+      {name:'Staccato scales',pattern:'1-2-3-4-5 staccato, focus on ab engagement',notes:'Quick release builds core reflex response.'},
+      {name:'Panting then sustain',pattern:'5 quick pants then hold on "ss" for 10 sec',notes:'Activates breath musculature quickly.'},
+      {name:'Phrase endurance scales',pattern:'Legato 1-3-5-8-5-3-1 on single breath',notes:'Extends phrase capacity gradually.'}
+    ],
+    struggles:['Breath support on long phrases','Breath support']
+  },
+  {
+    id:'headvoice',name:'Head Voice Discovery',instrument:'Voice',
+    description:'Gently finds and stabilizes head voice for students who are stuck in chest or losing control above the break.',
+    exercises:[
+      {name:'Falsetto siren',pattern:'Very light, breathy siren from head register down',notes:'Lower the pressure — let it feel disconnected at first.'},
+      {name:'Hooting owl tones',pattern:'Short "hoo" repeated descending',notes:'Light phonation above the break. Builds comfort.'},
+      {name:'Octave drop exercise',pattern:'High breathy tone sliding down an octave',notes:'Finds the upper register then brings it home.'},
+      {name:'Head voice sustains',pattern:'Sustained piano note in head voice, 4 counts',notes:'Build duration and confidence in the register.'}
+    ],
+    struggles:['Octave jumps','Consistent vibrato']
+  },
+  {
+    id:'dynamics',name:'Dynamic Control Pack',instrument:'Both',
+    description:'For students stuck at one volume — builds the full dynamic spectrum from whisper-quiet to powerful.',
+    exercises:[
+      {name:'Messa di voce',pattern:'Sustained note — pp → ff → pp over 8 counts',notes:'The king of dynamic exercises. Works on any comfortable pitch.'},
+      {name:'Dynamic scale contrast',pattern:'Scale: first half pp, second half ff',notes:'Trains instant dynamic shifting.'},
+      {name:'Diminuendo drill',pattern:'Start forte on a long tone, fade to near-silence',notes:'Builds control of release and support under low pressure.'},
+      {name:'Whisper to belt',pattern:'5-tone scale: whisper → spoken → full voice',notes:'Explores the full continuum consciously.'}
+    ],
+    struggles:['Consistent vibrato','Dynamic control']
+  },
+  {
+    id:'keysbasic',name:'Keys Technical Foundation',instrument:'Keys',
+    description:'Core technical groundwork for piano students — covers posture, hand position, and foundational scale/chord work.',
+    exercises:[
+      {name:'Hanon exercises 1-5',pattern:'Slowly ascending and descending patterns, hands separate first',notes:'Builds finger independence and equality. Keep wrist relaxed.'},
+      {name:'C major scale (2 octaves)',pattern:'Hands separate, then together; quarter-note pulse',notes:'Establish thumb-tuck technique cleanly.'},
+      {name:'I-IV-V chord progression',pattern:'Block chords in C, G, F major',notes:'Foundation of harmonic understanding and voice leading.'},
+      {name:'Contrary motion scales',pattern:'Both hands start on middle C, move outward together',notes:'Improves symmetry and coordination between hands.'}
+    ],
+    struggles:['Finger independence','Hand coordination']
+  }
+];
+
+// ── DB ──────────────────────────────────────────────────────
 let DB={
   students:[
     {
-      id:1,name:'Maya Chen',level:'Intermediate',colorIdx:0,
+      id:1,name:'Maya Chen',level:'Intermediate',colorIdx:0,instrument:'Voice',
       goals:['Extend upper passaggio through E5','Develop consistent mix voice','Build stamina for performance sets'],
       songs:[
-        {title:'Defying Gravity',key:'Bb',notes:'Struggling with belt in bridge',tags:['belt','passaggio','chest-mix'],archived:false},
-        {title:'The Climb',key:'G',notes:'Good progress on dynamics',tags:['dynamics','breath'],archived:false}
+        {title:'Defying Gravity',key:'Bb',artist:'Stephen Schwartz',notes:'Struggling with belt in bridge',tags:['belt','passaggio','chest-mix'],archived:false,problemPoints:''},
+        {title:'The Climb',key:'G',artist:'Jessi Alexander',notes:'Good progress on dynamics',tags:['dynamics','breath'],archived:false,problemPoints:''}
       ],
       struggles:[
         {area:'Passaggio transitions',detail:'Breaks at D5 in chest mix; tension visible in neck',severity:'high'},
@@ -390,51 +513,78 @@ let DB={
         {area:'Consistent vibrato',detail:'Vibrato stops when going loud',severity:'low'}
       ],
       exercises:[
-        {name:'Lip trill scales',pattern:'1-2-3-4-5-4-3-2-1',status:'success',notes:'Great for warm-up, releases jaw tension'},
-        {name:'Octave arpeggios',pattern:'1-3-5-8-5-3-1',status:'partial',notes:'Breaks at the top — continue'},
-        {name:'Messa di voce on A4',pattern:'Sustained note, swell and fade',status:'success',notes:'Really helped with breath control'},
-        {name:'Five-tone scales staccato',pattern:'1-2-3-4-5',status:'pending',notes:'Assigned last session'},
+        {name:'Lip trill scales',pattern:'1-2-3-4-5-4-3-2-1',status:'success',notes:'Great for warm-up, releases jaw tension',linkedStruggles:[],linkedGoals:[]},
+        {name:'Octave arpeggios',pattern:'1-3-5-8-5-3-1',status:'partial',notes:'Breaks at the top — continue',linkedStruggles:['Passaggio transitions'],linkedGoals:['Extend upper passaggio through E5']},
+        {name:'Messa di voce on A4',pattern:'Sustained note, swell and fade',status:'success',notes:'Really helped with breath control',linkedStruggles:['Breath support on long phrases'],linkedGoals:[]},
+        {name:'Five-tone scales staccato',pattern:'1-2-3-4-5',status:'pending',notes:'Assigned last session',linkedStruggles:[],linkedGoals:[]},
       ],
-      sessionNotes:[],chatHistory:[],lessonPlan:null
+      sessionNotes:[],sessionLogs:[],chatHistory:[],lessonPlan:null,curriculumProgress:{},achievedGoals:[]
     },
     {
-      id:2,name:'Jordan Lee',level:'Beginner',colorIdx:1,
+      id:2,name:'Jordan Lee',level:'Beginner',colorIdx:1,instrument:'Voice',
       goals:['Develop proper breath support','Find and stabilize head voice','Improve pitch accuracy on leaps'],
-      songs:[{title:'Somewhere Over the Rainbow',key:'F',notes:'Pitch issues on octave jump',tags:['head-voice','leaps','breath'],archived:false}],
+      songs:[{title:'Somewhere Over the Rainbow',key:'F',artist:'Harold Arlen',notes:'Pitch issues on octave jump',tags:['head-voice','leaps','breath'],archived:false,problemPoints:'Octave jump from F4 to F5 — scoops up; needs precision landing.'}],
       struggles:[
         {area:'Breath support',detail:'Shallow breathing; shoulders rise when inhaling',severity:'high'},
         {area:'Octave jumps',detail:'Scoops up to high notes instead of landing on pitch',severity:'medium'},
       ],
       exercises:[
-        {name:'Hissing breath exercises',pattern:'Sustained s sound on exhale',status:'success',notes:'Really understanding breath now'},
-        {name:'Siren slides',pattern:'Glide from chest to head and back',status:'partial',notes:'Finding head voice but still wobbly'},
+        {name:'Hissing breath exercises',pattern:'Sustained s sound on exhale',status:'success',notes:'Really understanding breath now',linkedStruggles:['Breath support'],linkedGoals:['Develop proper breath support']},
+        {name:'Siren slides',pattern:'Glide from chest to head and back',status:'partial',notes:'Finding head voice but still wobbly',linkedStruggles:[],linkedGoals:['Find and stabilize head voice']},
       ],
-      sessionNotes:[],chatHistory:[],lessonPlan:null
+      sessionNotes:[],sessionLogs:[],chatHistory:[],lessonPlan:null,curriculumProgress:{},achievedGoals:[]
     }
   ],
   library:{
     songs:[
-      {id:'ls1',title:'Defying Gravity',composer:'Schwartz',key:'Bb',tags:['belt','passaggio','mix','musical-theatre'],notes:'Great for working mix/belt coordination. Bridge is intense passaggio territory.'},
-      {id:'ls2',title:'Somewhere Over the Rainbow',composer:'Arlen',key:'F',tags:['head-voice','leaps','legato','breath'],notes:'Classic for establishing head voice and smooth octave leaps. Good for breath control too.'},
+      {id:'ls1',title:'Defying Gravity',artist:'Stephen Schwartz',composer:'Schwartz / Wicked',key:'Bb',instrument:'Voice',tags:['belt','passaggio','mix','musical-theatre'],notes:'Great for working mix/belt coordination. Bridge is intense passaggio territory.'},
+      {id:'ls2',title:'Somewhere Over the Rainbow',artist:'Harold Arlen',composer:'Arlen',key:'F',instrument:'Voice',tags:['head-voice','leaps','legato','breath'],notes:'Classic for establishing head voice and smooth octave leaps. Good for breath control too.'},
     ],
     exercises:[
-      {id:'le1',name:'Lip trill scales',pattern:'1-2-3-4-5-4-3-2-1',tags:['warm-up','registration','jaw-release','breath'],notes:'Excellent all-purpose warm-up. Releases jaw and tongue tension, encourages forward placement.'},
-      {id:'le2',name:'Messa di voce',pattern:'Sustained note — swell from pp to ff and back',tags:['breath','dynamics','support','advanced'],notes:'Builds breath control and dynamic range. Best on A4 or B4 for most voices.'},
-      {id:'le3',name:'Siren slides',pattern:'Glide from lowest to highest and back on "wee"',tags:['registration','passaggio','warm-up','head-voice'],notes:'Smooths out passaggio by removing the gear-shift mentality. Low pressure on the mechanism.'},
-      {id:'le4',name:'Octave arpeggios',pattern:'1-3-5-8-5-3-1',tags:['range','registration','passaggio'],notes:'Builds range and tests passaggio under moderate demand.'},
-      {id:'le5',name:'Hissing breath',pattern:'Sustained "s" for 10-20 seconds, focus on even release',tags:['breath','support','beginner'],notes:'Establishes connection to breath support without vocal fold involvement. Great for beginners.'},
+      {id:'le1',name:'Lip trill scales',pattern:'1-2-3-4-5-4-3-2-1',instrument:'Voice',tags:['warm-up','registration','jaw-release','breath'],notes:'Excellent all-purpose warm-up. Releases jaw and tongue tension, encourages forward placement.',addressesStruggles:['Passaggio transitions'],addressesGoals:['Develop consistent mix voice']},
+      {id:'le2',name:'Messa di voce',pattern:'Sustained note — swell from pp to ff and back',instrument:'Voice',tags:['breath','dynamics','support','advanced'],notes:'Builds breath control and dynamic range. Best on A4 or B4 for most voices.',addressesStruggles:['Breath support on long phrases'],addressesGoals:[]},
+      {id:'le3',name:'Siren slides',pattern:'Glide from lowest to highest and back on "wee"',instrument:'Voice',tags:['registration','passaggio','warm-up','head-voice'],notes:'Smooths out passaggio by removing the gear-shift mentality.',addressesStruggles:['Passaggio transitions'],addressesGoals:['Find and stabilize head voice']},
+      {id:'le4',name:'Octave arpeggios',pattern:'1-3-5-8-5-3-1',instrument:'Voice',tags:['range','registration','passaggio'],notes:'Builds range and tests passaggio under moderate demand.',addressesStruggles:[],addressesGoals:['Extend upper passaggio through E5']},
+      {id:'le5',name:'Hissing breath',pattern:'Sustained "s" for 10-20 seconds, focus on even release',instrument:'Both',tags:['breath','support','beginner'],notes:'Establishes connection to breath support without vocal fold involvement.',addressesStruggles:['Breath support'],addressesGoals:['Develop proper breath support']},
+      {id:'le6',name:'Hanon exercises 1-5',pattern:'Ascending/descending finger patterns, quarter note pulse',instrument:'Keys',tags:['technique','finger-independence','beginner'],notes:'Core technical foundation for piano. Keep wrist loose and relaxed.',addressesStruggles:['Finger independence'],addressesGoals:[]},
     ]
   },
   activeId:1,
   activeTab:'dashboard',
-  view:'student' // 'student' | 'library'
+  view:'student'
 };
 
-let libSubtab='songs'; // 'songs' | 'exercises'
+let libSubtab='songs'; // 'songs' | 'exercises' | 'curriculum'
+let libInstrumentFilter='all'; // 'all' | 'Voice' | 'Keys'
+let showArchivedStudents=false;
+let gdriveToken=null;
+let sessionLogDraft=[];
+let modalType=null;
 
-// ── Storage ──────────────────────────────────────────────
-function save(){ try{ localStorage.setItem('vstdb3',JSON.stringify({students:DB.students,library:DB.library})); }catch(e){} }
-function load(){ try{ const d=localStorage.getItem('vstdb3'); if(d){ const p=JSON.parse(d); DB.students=p.students||DB.students; DB.library=p.library||DB.library; } }catch(e){} }
+// ── Storage ─────────────────────────────────────────────────
+function save(){
+  try{ localStorage.setItem('vstdb3',JSON.stringify({students:DB.students,library:DB.library})); }catch(e){}
+  if(gdriveToken) saveToDrive();
+}
+function load(){
+  try{
+    const d=localStorage.getItem('vstdb3');
+    if(d){ const p=JSON.parse(d); DB.students=p.students||DB.students; DB.library=p.library||DB.library; }
+  }catch(e){}
+  migrateDB();
+}
+function migrateDB(){
+  DB.students.forEach(s=>{
+    if(!s.instrument) s.instrument='Voice';
+    if(!s.sessionLogs) s.sessionLogs=[];
+    if(!s.curriculumProgress) s.curriculumProgress={};
+    if(!s.achievedGoals) s.achievedGoals=[];
+    s.songs.forEach(sg=>{ if(!sg.problemPoints) sg.problemPoints=''; if(!sg.artist) sg.artist=''; });
+    s.exercises.forEach(ex=>{ if(!ex.linkedStruggles) ex.linkedStruggles=[]; if(!ex.linkedGoals) ex.linkedGoals=[]; });
+  });
+  DB.library.songs.forEach(ls=>{ if(!ls.artist) ls.artist=''; if(!ls.instrument) ls.instrument='Voice'; });
+  DB.library.exercises.forEach(le=>{ if(!le.instrument) le.instrument='Both'; if(!le.addressesStruggles) le.addressesStruggles=[]; if(!le.addressesGoals) le.addressesGoals=[]; });
+}
 function saveApiKey(k,v){ try{ localStorage.setItem('vstkey_'+k,v); }catch(e){} }
 function loadApiKey(k){ try{ return localStorage.getItem('vstkey_'+k)||''; }catch(e){ return ''; } }
 function toggleSettings(){ document.getElementById('api-wrap').classList.toggle('open'); }
@@ -444,37 +594,151 @@ function initials(n){ return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpp
 function color(idx){ return COLORS[idx%COLORS.length]; }
 function getActive(){ return DB.students.find(s=>s.id===DB.activeId); }
 function uid(){ return 'l'+Date.now()+Math.random().toString(36).slice(2,6); }
-function sortedStudents(){ return [...DB.students].sort((a,b)=>a.name.localeCompare(b.name)); }
+function sortedStudents(){ return [...DB.students].filter(s=>!s.archivedStudent).sort((a,b)=>a.name.localeCompare(b.name)); }
+function archivedStudents(){ return [...DB.students].filter(s=>s.archivedStudent).sort((a,b)=>a.name.localeCompare(b.name)); }
+function parseList(str){ return str.split(',').map(t=>t.trim()).filter(Boolean); }
+function parseTags(str){ return str.split(',').map(t=>t.trim().toLowerCase().replace(/\s+/g,'-').replace(/^#/,'')).filter(Boolean); }
 
-// ── Sidebar ───────────────────────────────────────────────
+// ── Google Drive ─────────────────────────────────────────────
+const GDRIVE_CLIENT_ID='642875191868-930aik1o2u8nf5bdmrmutd161htjm55q.apps.googleusercontent.com';
+const GDRIVE_FILENAME='voice_studio_tracker_db.json';
+
+function toggleGDrive(){
+  if(gdriveToken) disconnectGDrive();
+  else connectGDrive();
+}
+function connectGDrive(){
+  const scope='https://www.googleapis.com/auth/drive.appdata';
+  const redirectUri=window.location.href.split('?')[0].split('#')[0];
+  const url=`https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(GDRIVE_CLIENT_ID)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&include_granted_scopes=true`;
+  const popup=window.open(url,'gdrive_auth','width=500,height=600');
+  const timer=setInterval(()=>{
+    try{
+      const hash=popup.location.hash;
+      if(hash&&hash.includes('access_token')){
+        clearInterval(timer);
+        popup.close();
+        const params=new URLSearchParams(hash.slice(1));
+        gdriveToken=params.get('access_token');
+        updateGDriveUI();
+        loadFromDrive();
+      }
+    }catch(e){}
+    if(popup.closed){ clearInterval(timer); }
+  },500);
+}
+function disconnectGDrive(){
+  gdriveToken=null;
+  updateGDriveUI();
+}
+function updateGDriveUI(){
+  const btn=document.getElementById('gdrive-btn');
+  if(!btn) return;
+  if(gdriveToken){
+    btn.className='gdrive-btn connected';
+    btn.textContent='✓ Drive connected';
+  } else {
+    btn.className='gdrive-btn';
+    btn.textContent='☁ Connect Google Drive';
+  }
+}
+async function findOrCreateDriveFile(){
+  const listRes=await fetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D%22'+GDRIVE_FILENAME+'%22',{headers:{Authorization:'Bearer '+gdriveToken}});
+  const listData=await listRes.json();
+  if(listData.files&&listData.files.length>0) return listData.files[0].id;
+  const meta={name:GDRIVE_FILENAME,parents:['appDataFolder']};
+  const createRes=await fetch('https://www.googleapis.com/drive/v3/files',{method:'POST',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'application/json'},body:JSON.stringify(meta)});
+  const createData=await createRes.json();
+  return createData.id;
+}
+async function saveToDrive(){
+  if(!gdriveToken) return;
+  try{
+    const fileId=await findOrCreateDriveFile();
+    const content=JSON.stringify({students:DB.students,library:DB.library});
+    const boundary='vst_boundary';
+    const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{}\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+content+'\r\n--'+boundary+'--';
+    await fetch('https://www.googleapis.com/upload/drive/v3/files/'+fileId+'?uploadType=multipart',{method:'PATCH',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+boundary},body});
+  }catch(e){ console.error('Drive save failed',e); }
+}
+async function loadFromDrive(){
+  if(!gdriveToken) return;
+  try{
+    const fileId=await findOrCreateDriveFile();
+    const res=await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
+    if(res.ok){
+      const text=await res.text();
+      if(text&&text.length>2){
+        const p=JSON.parse(text);
+        if(p.students) DB.students=p.students;
+        if(p.library) DB.library=p.library;
+        migrateDB();
+        renderSidebar(); renderPanels();
+      }
+    }
+  }catch(e){ console.error('Drive load failed',e); }
+}
+
+// ── Sidebar ──────────────────────────────────────────────────
 function renderSidebar(){
-  document.getElementById('student-list').innerHTML=sortedStudents().map(s=>{
+  updateGDriveUI();
+  const active=sortedStudents();
+  document.getElementById('student-list').innerHTML=active.map(s=>{
     const c=color(s.colorIdx),act=(DB.view==='student'&&s.id===DB.activeId)?'active':'';
-    const priv=s.isPrivate?`<span class="private-badge">Private</span>`:'';
+    const priv=s.isPrivate?`<span class="private-badge">P</span>`:'';
+    const inst=s.instrument==='Keys'?`<span class="instrument-badge keys">Keys</span>`:`<span class="instrument-badge voice">Voice</span>`;
     return `<div class="student-item ${act}" onclick="selectStudent(${s.id})">
       <div class="avatar" style="background:${c.bg};color:${c.color}">${initials(s.name)}</div>
-      <div style="min-width:0;"><div class="s-name">${esc(s.name)}${priv}</div><div class="s-level">${esc(s.level)}</div></div>
+      <div style="min-width:0;"><div class="s-name">${esc(s.name)}${priv}${inst}</div><div class="s-level">${esc(s.level)}</div></div>
     </div>`;
   }).join('');
+
+  const arch=archivedStudents();
+  const toggleRow=document.getElementById('archived-toggle-row');
+  const archList=document.getElementById('archived-list');
+  if(arch.length){
+    toggleRow.innerHTML=`<span style="font-size:10px;color:var(--text3);cursor:pointer;display:flex;align-items:center;gap:4px;" onclick="toggleArchivedSection()">${showArchivedStudents?'▾':'▸'} Archived (${arch.length})</span>`;
+    if(showArchivedStudents){
+      archList.style.display='block';
+      archList.innerHTML=arch.map(s=>{
+        const c=color(s.colorIdx),act=(DB.view==='student'&&s.id===DB.activeId)?'active':'';
+        return `<div class="student-item archived-student-item ${act}" onclick="selectStudent(${s.id})" style="opacity:0.65;">
+          <div class="avatar" style="background:${c.bg};color:${c.color}">${initials(s.name)}</div>
+          <div style="min-width:0;"><div class="s-name">${esc(s.name)}</div><div class="s-level">📦 Archived</div></div>
+        </div>`;
+      }).join('');
+    } else { archList.style.display='none'; }
+  } else { toggleRow.innerHTML=''; archList.style.display='none'; }
+
   document.getElementById('lib-btn').className='library-btn'+(DB.view==='library'?' active':'');
+  document.getElementById('patterns-btn').className='nav-btn'+(DB.view==='patterns'?' active':'');
+  document.getElementById('diagnosis-btn').className='nav-btn'+(DB.view==='diagnosis'?' active':'');
 }
+function toggleArchivedSection(){ showArchivedStudents=!showArchivedStudents; renderSidebar(); }
+function selectStudent(id){ DB.activeId=id; DB.activeTab='dashboard'; DB.view='student'; renderSidebar(); renderPanels(); }
+function gotoView(v){ DB.view=v; renderSidebar(); renderPanels(); }
 
-function selectStudent(id){
-  DB.activeId=id; DB.activeTab='dashboard'; DB.view='student';
-  renderSidebar(); renderPanels();
-}
-function selectLibrary(){
-  DB.view='library'; renderSidebar(); renderPanels();
-}
-
+// ── Panel routing ────────────────────────────────────────────
 function renderPanels(){
-  document.getElementById('no-student').style.display='none';
-  document.getElementById('student-panel').style.display=DB.view==='student'?'flex':'none';
-  document.getElementById('library-panel').style.display=DB.view==='library'?'flex':'none';
-  if(DB.view==='student'){ const s=getActive(); if(!s){ document.getElementById('no-student').style.display='flex'; document.getElementById('student-panel').style.display='none'; return; } renderStudentHeader(s); renderTabBar(); renderTab(); }
-  else renderLibraryPanel();
+  ['no-student','student-panel','library-panel','patterns-panel','diagnosis-panel'].forEach(id=>{ document.getElementById(id).style.display='none'; });
+  if(DB.view==='student'){
+    const s=getActive();
+    if(!s){ document.getElementById('no-student').style.display='flex'; return; }
+    document.getElementById('student-panel').style.display='flex';
+    renderStudentHeader(s); renderTabBar(); renderTab();
+  } else if(DB.view==='library'){
+    document.getElementById('library-panel').style.display='flex';
+    renderLibraryPanel();
+  } else if(DB.view==='patterns'){
+    document.getElementById('patterns-panel').style.display='flex';
+    renderPatternsPanel();
+  } else if(DB.view==='diagnosis'){
+    document.getElementById('diagnosis-panel').style.display='flex';
+    renderDiagnosisPanel();
+  }
 }
 
+// ── Student Header ───────────────────────────────────────────
 function renderStudentHeader(s){
   const c=color(s.colorIdx);
   const av=document.getElementById('hdr-avatar');
@@ -482,27 +746,27 @@ function renderStudentHeader(s){
   av.textContent=initials(s.name);
   document.getElementById('hdr-name').textContent=s.name;
   const mastered=s.exercises.filter(e=>e.status==='success').length;
-  document.getElementById('hdr-sub').textContent=s.level+' · '+mastered+' exercise'+(mastered===1?'':'s')+' mastered';
-  // Edit/delete buttons
+  const instBadge=s.instrument==='Keys'?`<span class="badge badge-teal" style="margin-left:6px;">🎹 Keys</span>`:`<span class="badge badge-purple" style="margin-left:6px;">🎤 Voice</span>`;
+  document.getElementById('hdr-sub').innerHTML=`${esc(s.level)} · ${mastered} exercise${mastered===1?'':'s'} mastered${instBadge}${s.archivedStudent?` <span class="badge badge-gray" style="margin-left:4px;">📦 Archived</span>`:''}`;
   let actions=document.getElementById('hdr-actions');
-  if(!actions){
-    actions=document.createElement('div');
-    actions.id='hdr-actions';
-    actions.style.cssText='display:flex;gap:6px;margin-left:auto;';
-    document.getElementById('hdr-avatar').parentElement.appendChild(actions);
-  }
+  if(!actions){ actions=document.createElement('div'); actions.id='hdr-actions'; actions.style.cssText='display:flex;gap:6px;margin-left:auto;'; document.getElementById('hdr-avatar').parentElement.appendChild(actions); }
   actions.innerHTML=`
     <button class="icon-btn" onclick="openModal('editstudent')" title="Edit student">✏️</button>
+    ${s.archivedStudent
+      ?`<button class="icon-btn" onclick="unarchiveStudent()" title="Unarchive" style="color:var(--green);">📤</button>`
+      :`<button class="icon-btn" onclick="archiveStudent()" title="Archive student">📦</button>`}
     <button class="icon-btn" onclick="deleteStudent()" title="Delete student" style="color:var(--coral);">🗑</button>`;
 }
+function archiveStudent(){ const s=getActive(); if(!s) return; if(!confirm('Archive '+s.name+'? They will be hidden but fully editable.')) return; s.archivedStudent=true; save(); renderSidebar(); renderPanels(); }
+function unarchiveStudent(){ const s=getActive(); if(!s) return; s.archivedStudent=false; save(); renderSidebar(); renderPanels(); }
 
+// ── Tab bar ──────────────────────────────────────────────────
 function renderTabBar(){
-  ['dashboard','songs','notes','exercises','lessonplan'].forEach(t=>{
+  ['dashboard','songs','notes','exercises','curriculum','lessonplan'].forEach(t=>{
     document.getElementById('tab-'+t).className='tab'+(t===DB.activeTab?' active':'');
   });
 }
 function switchTab(t){ DB.activeTab=t; renderTabBar(); renderTab(); if(t==='dashboard') setTimeout(attachChatScroll,50); }
-
 function renderTab(){
   const s=getActive(); if(!s) return;
   const el=document.getElementById('tab-content');
@@ -510,14 +774,18 @@ function renderTab(){
   else if(DB.activeTab==='songs') el.innerHTML=renderSongs(s);
   else if(DB.activeTab==='notes') el.innerHTML=renderNotes(s);
   else if(DB.activeTab==='exercises') el.innerHTML=renderExercises(s);
+  else if(DB.activeTab==='curriculum') el.innerHTML=renderCurriculum(s);
   else if(DB.activeTab==='lessonplan') el.innerHTML=renderLessonPlan(s);
   if(DB.activeTab==='dashboard') setTimeout(attachChatScroll,50);
 }
-
 // ── DASHBOARD ─────────────────────────────────────────────
 function renderDashboard(s){
   const activeSongs=s.songs.filter(sg=>!sg.archived);
   const plan=s.lessonPlan&&!s.lessonPlan.error?s.lessonPlan:null;
+  const levels=CURRICULUM_LEVELS[s.instrument]||CURRICULUM_LEVELS.Voice;
+  const levelItems=levels[s.level]||[];
+  const done=levelItems.filter((_,i)=>s.curriculumProgress[s.level+'_'+i]).length;
+  const pct=levelItems.length?Math.round(done/levelItems.length*100):0;
 
   return `
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
@@ -535,26 +803,37 @@ function renderDashboard(s){
         ${activeSongs.length?activeSongs.map(sg=>`<div class="dash-song">
           <div>
             <div class="dash-song-title">${esc(sg.title)}</div>
-            <div class="dash-song-meta">Key of ${esc(sg.key)} · ${(sg.tags||[]).map(t=>'#'+t).join(' ')}</div>
+            <div class="dash-song-meta">Key of ${esc(sg.key)}${sg.artist?' · '+esc(sg.artist):''} · ${(sg.tags||[]).map(t=>'#'+t).join(' ')}</div>
+            ${sg.problemPoints?`<div style="font-size:11px;color:var(--coral);margin-top:2px;">⚠ ${esc(sg.problemPoints.slice(0,60))}${sg.problemPoints.length>60?'…':''}</div>`:''}
           </div>
         </div>`).join(''):'<span style="color:var(--text2);font-size:13px;">No songs yet.</span>'}
-        <button class="add-row-btn" style="margin-top:8px;" onclick="switchTab(\'songs\')">→ Manage songs</button>
+        <button class="add-row-btn" style="margin-top:8px;" onclick="switchTab('songs')">→ Manage songs</button>
       </div>
     </div>
   </div>
+
+  ${levelItems.length?`<div class="section-label">Curriculum progress — ${esc(s.level)}</div>
+  <div class="card" style="margin-bottom:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <span style="font-size:12px;color:var(--text2);">${done} of ${levelItems.length} items complete</span>
+      <span style="font-size:12px;color:var(--green);font-weight:600;">${pct}%</span>
+    </div>
+    <div class="curriculum-progress-bar"><div class="curriculum-progress-fill" style="width:${pct}%"></div></div>
+    <button class="add-row-btn" style="margin-top:6px;" onclick="switchTab('curriculum')">→ View full checklist</button>
+  </div>`:''}
 
   ${plan?`<div class="section-label">Last lesson plan snapshot</div>
   <div class="card" style="margin-bottom:20px;">
     ${plan.overview?`<div style="font-size:13px;color:var(--text2);margin-bottom:10px;line-height:1.6;">${esc(plan.overview)}</div>`:''}
     ${(plan.focus||[]).slice(0,2).map(f=>`<div style="font-size:13px;padding:5px 0;border-bottom:0.5px solid var(--border);display:flex;gap:8px;align-items:flex-start;"><span style="color:var(--coral-mid);">🎯</span><span><strong>${esc(f.name||f)}</strong>${f.instruction?' — '+esc(f.instruction):''}</span></div>`).join('')}
-    <button class="add-row-btn" style="margin-top:8px;" onclick="switchTab(\'lessonplan\')">→ Full lesson plan</button>
+    <button class="add-row-btn" style="margin-top:8px;" onclick="switchTab('lessonplan')">→ Full lesson plan</button>
   </div>`:`<div class="card" style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;">
     <div style="font-size:13px;color:var(--text2);">No lesson plan yet.</div>
-    <button class="add-row-btn" style="margin-top:0;" onclick="switchTab(\'lessonplan\')">Generate →</button>
+    <button class="add-row-btn" style="margin-top:0;" onclick="switchTab('lessonplan')">Generate →</button>
   </div>`}
 
   <div class="section-label">In-session assistant</div>
-  <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Ask anything mid-lesson — exercises to try, modifications, troubleshooting. Uses ${esc(s.name)}'s full history and your exercise library.</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Ask anything mid-lesson — exercises to try, modifications, troubleshooting.</div>
   <div class="chat-wrap">
     <div class="chat-messages" id="chat-messages">${renderChatMessages(s)}</div>
     <div class="chat-input-row">
@@ -577,7 +856,6 @@ function renderChatMessages(s){
 }
 function attachChatScroll(){ const el=document.getElementById('chat-messages'); if(el) el.scrollTop=el.scrollHeight; }
 function chatKeydown(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat(); } }
-
 async function sendChat(){
   const s=getActive(); if(!s) return;
   const input=document.getElementById('chat-input');
@@ -591,35 +869,18 @@ async function sendChat(){
   const msgEl=document.getElementById('chat-messages');
   msgEl.innerHTML=renderChatMessages(s)+`<div class="chat-msg ai thinking"><div class="spinner"></div>Thinking…</div>`;
   msgEl.scrollTop=msgEl.scrollHeight;
-
   const libExercises=DB.library.exercises.map(e=>e.name+' ['+e.tags.join(',')+'] — '+e.notes).join('\n');
   const context=buildStudentContext(s);
-  const systemPrompt=`You are an expert vocal coach assistant helping a teacher during a live lesson. Be concise and practical. Suggest specific exercises with clear instructions. Reference the student's history and the teacher's exercise library when relevant. Use **bold** for exercise names.
-
-STUDENT:
-${context}
-
-TEACHER'S EXERCISE LIBRARY:
-${libExercises}
-
-Keep responses focused — 3-6 sentences unless more detail is clearly needed.`;
-
+  const systemPrompt=`You are an expert vocal coach assistant helping a teacher during a live lesson. Be concise and practical. Suggest specific exercises with clear instructions. Use **bold** for exercise names.\n\nSTUDENT:\n${context}\n\nTEACHER'S EXERCISE LIBRARY:\n${libExercises}\n\nKeep responses focused — 3-6 sentences unless more detail is clearly needed.`;
   const history=s.chatHistory;
   let contents;
-  if(history.length===1){
-    contents=[{role:'user',parts:[{text:systemPrompt+'\n\nTeacher: '+msg}]}];
-  } else {
+  if(history.length===1){ contents=[{role:'user',parts:[{text:systemPrompt+'\n\nTeacher: '+msg}]}]; }
+  else {
     contents=[{role:'user',parts:[{text:systemPrompt+'\n\nTeacher: '+history[0].content}]}];
-    for(let i=1;i<history.length;i++){
-      contents.push({role:history[i].role==='user'?'user':'model',parts:[{text:history[i].content}]});
-    }
+    for(let i=1;i<history.length;i++){ contents.push({role:history[i].role==='user'?'user':'model',parts:[{text:history[i].content}]}); }
   }
-
   try{
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({contents,generationConfig:{temperature:0.6,maxOutputTokens:500}})
-    });
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents,generationConfig:{temperature:0.6,maxOutputTokens:500}})});
     const data=await res.json();
     if(data.error) s.chatHistory.push({role:'assistant',content:'⚠ '+data.error.message});
     else s.chatHistory.push({role:'assistant',content:data.candidates?.[0]?.content?.parts?.[0]?.text||'No response.'});
@@ -631,7 +892,7 @@ Keep responses focused — 3-6 sentences unless more detail is clearly needed.`;
 }
 function clearChat(){ const s=getActive(); if(!s) return; s.chatHistory=[]; save(); renderTab(); }
 
-// ── SONGS ─────────────────────────────────────────────────
+// ── SONGS ────────────────────────────────────────────────────
 function renderSongs(s){
   const active=s.songs.filter(sg=>!sg.archived);
   const archived=s.songs.filter(sg=>sg.archived);
@@ -643,7 +904,10 @@ function renderSongs(s){
     const relEx=getRelatedExercises(s,sg);
     return `<div class="card">
       <div class="card-row">
-        <div><div class="card-title">${esc(sg.title)}</div><div style="font-size:12px;color:var(--text2);margin-top:2px;">Key of ${esc(sg.key)}</div></div>
+        <div>
+          <div class="card-title">${esc(sg.title)}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;">Key of ${esc(sg.key)}${sg.artist?' · <em>'+esc(sg.artist)+'</em>':''}</div>
+        </div>
         <div style="display:flex;gap:6px;">
           <button class="icon-btn" onclick="archiveSong(${ri})" title="Archive">📦</button>
           <button class="icon-btn" onclick="deleteSong(${ri})">🗑</button>
@@ -654,6 +918,8 @@ function renderSongs(s){
         ${(sg.tags||[]).map((t,ti)=>`<span class="hashtag">#${esc(t)} <span style="cursor:pointer;margin-left:3px;" onclick="removeSongTag(${ri},${ti})">×</span></span>`).join('')}
         <input class="hashtag-input" placeholder="+ tag" onkeydown="addSongTagKey(event,${ri},this)">
       </div>
+      <div class="problem-point-label">⚠ Problem points</div>
+      <textarea class="problem-points-area" rows="2" placeholder="Note specific bars, transitions, or challenges…" onchange="updateSongProblem(${ri},this.value)">${esc(sg.problemPoints||'')}</textarea>
       ${related.length?`<div class="related-songs-box">🔗 Shared tags with archived: <strong>${related.map(r=>esc(r.title)).join(', ')}</strong>${relEx.length?' · Past exercises that helped: '+relEx.map(e=>esc(e)).join(', '):''}</div>`:''}
     </div>`;
   }).join('')||'<div style="color:var(--text2);font-size:13px;margin-bottom:10px;">No current songs.</div>'}
@@ -667,39 +933,50 @@ function renderSongs(s){
     const ri=s.songs.indexOf(sg);
     return `<div class="archive-song-card">
       <div class="card-row">
-        <div><div style="font-size:13px;font-weight:500;">${esc(sg.title)} <span style="font-weight:400;color:var(--text2);">· Key ${esc(sg.key)}</span></div>
-        <div style="margin-top:4px;">${(sg.tags||[]).map(t=>`<span class="hashtag">#${esc(t)}</span>`).join('')}</div></div>
-        <button class="icon-btn" onclick="unarchiveSong(${ri})" title="Restore">↩</button>
+        <div>
+          <div style="font-size:13px;font-weight:500;">${esc(sg.title)} <span style="font-weight:400;color:var(--text2);">· Key ${esc(sg.key)}${sg.artist?' · <em>'+esc(sg.artist)+'</em>':''}</span></div>
+          <div style="margin-top:4px;">${(sg.tags||[]).map(t=>`<span class="hashtag">#${esc(t)}</span>`).join('')}</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="icon-btn" onclick="unarchiveSong(${ri})" title="Restore">↩</button>
+          <button class="icon-btn" onclick="editArchivedSong(${ri})" title="Edit">✏️</button>
+          <button class="icon-btn" onclick="deleteSong(${ri})">🗑</button>
+        </div>
       </div>
       ${sg.notes?`<div style="font-size:12px;color:var(--text2);margin-top:5px;">${esc(sg.notes)}</div>`:''}
+      ${sg.problemPoints?`<div style="font-size:11px;color:var(--coral);margin-top:4px;">⚠ ${esc(sg.problemPoints)}</div>`:''}
     </div>`;
   }).join('')}`:''}`;
 }
 
 function getRelatedExercises(s,song){
   const tags=song.tags||[];
-  return s.exercises.filter(ex=>ex.status==='success'&&tags.some(t=>ex.name.toLowerCase().includes(t)||ex.notes.toLowerCase().includes(t))).map(ex=>ex.name);
+  return s.exercises.filter(ex=>ex.status==='success'&&tags.some(t=>ex.name.toLowerCase().includes(t)||(ex.notes||'').toLowerCase().includes(t))).map(ex=>ex.name);
 }
-function addSongTagKey(e,idx,input){
-  if(e.key==='Enter'||e.key===','){e.preventDefault();const val=input.value.trim().replace(/^#/,'').replace(/\s+/g,'-').toLowerCase();if(val){const s=getActive();if(!s.songs[idx].tags)s.songs[idx].tags=[];if(!s.songs[idx].tags.includes(val))s.songs[idx].tags.push(val);save();renderTab();}}
-}
-function removeSongTag(idx,ti){const s=getActive();s.songs[idx].tags.splice(ti,1);save();renderTab();}
-function archiveSong(i){const s=getActive();s.songs[i].archived=true;save();renderTab();}
-function unarchiveSong(i){const s=getActive();s.songs[i].archived=false;save();renderTab();}
-function deleteSong(i){const s=getActive();s.songs.splice(i,1);save();renderTab();}
-function updateSongNote(i,v){const s=getActive();s.songs[i].notes=v;save();}
+function addSongTagKey(e,idx,input){ if(e.key==='Enter'||e.key===','){ e.preventDefault(); const val=input.value.trim().replace(/^#/,'').replace(/\s+/g,'-').toLowerCase(); if(val){ const s=getActive(); if(!s.songs[idx].tags) s.songs[idx].tags=[]; if(!s.songs[idx].tags.includes(val)) s.songs[idx].tags.push(val); save(); renderTab(); } } }
+function removeSongTag(idx,ti){ const s=getActive(); s.songs[idx].tags.splice(ti,1); save(); renderTab(); }
+function archiveSong(i){ const s=getActive(); s.songs[i].archived=true; save(); renderTab(); }
+function unarchiveSong(i){ const s=getActive(); s.songs[i].archived=false; save(); renderTab(); }
+function deleteSong(i){ const s=getActive(); s.songs.splice(i,1); save(); renderTab(); }
+function updateSongNote(i,v){ const s=getActive(); s.songs[i].notes=v; save(); }
+function updateSongProblem(i,v){ const s=getActive(); s.songs[i].problemPoints=v; save(); }
+function editArchivedSong(i){ openModal('editarchivedSong',i); }
 
 // Song picker
-function openSongPicker(){document.getElementById('song-picker-bg').classList.add('open');renderSongPicker();}
-function closeSongPicker(e){if(e.target===document.getElementById('song-picker-bg'))document.getElementById('song-picker-bg').classList.remove('open');}
+function openSongPicker(){ document.getElementById('song-picker-bg').classList.add('open'); renderSongPicker(); }
+function closeSongPicker(e){ if(e.target===document.getElementById('song-picker-bg')) document.getElementById('song-picker-bg').classList.remove('open'); }
 function renderSongPicker(){
   const q=(document.getElementById('song-picker-search')?.value||'').toLowerCase();
   const s=getActive();
+  const inst=s.instrument;
   const assigned=new Set(s.songs.map(sg=>sg.title.toLowerCase()));
-  const items=DB.library.songs.filter(ls=>!assigned.has(ls.title.toLowerCase())&&(!q||ls.title.toLowerCase().includes(q)||ls.tags.some(t=>t.includes(q))));
+  const items=DB.library.songs.filter(ls=>{
+    const instrMatch=ls.instrument==='Both'||ls.instrument===inst||!ls.instrument;
+    return !assigned.has(ls.title.toLowerCase())&&instrMatch&&(!q||ls.title.toLowerCase().includes(q)||ls.tags.some(t=>t.includes(q)));
+  });
   document.getElementById('song-picker-list').innerHTML=items.length?items.map(ls=>`<div class="picker-item">
     <div class="picker-item-info">
-      <div class="picker-item-name">${esc(ls.title)}</div>
+      <div class="picker-item-name">${esc(ls.title)}${ls.artist?` <span style="font-weight:400;color:var(--text2);">— ${esc(ls.artist)}</span>`:''}</div>
       <div class="picker-item-meta">Key ${esc(ls.key)} · ${ls.tags.map(t=>'#'+t).join(' ')}</div>
       ${ls.notes?`<div style="font-size:11px;color:var(--text2);margin-top:2px;">${esc(ls.notes)}</div>`:''}
     </div>
@@ -708,18 +985,22 @@ function renderSongPicker(){
 }
 function assignSongFromLib(libId){
   const s=getActive(); const ls=DB.library.songs.find(l=>l.id===libId); if(!ls||!s) return;
-  s.songs.push({title:ls.title,key:ls.key,notes:'',tags:[...ls.tags],archived:false});
+  s.songs.push({title:ls.title,key:ls.key,artist:ls.artist||'',notes:'',tags:[...ls.tags],archived:false,problemPoints:''});
   save(); document.getElementById('song-picker-bg').classList.remove('open'); renderTab();
 }
 
 // Exercise picker
-function openExPicker(){document.getElementById('ex-picker-bg').classList.add('open');renderExPicker();}
-function closeExPicker(e){if(e.target===document.getElementById('ex-picker-bg'))document.getElementById('ex-picker-bg').classList.remove('open');}
+function openExPicker(){ document.getElementById('ex-picker-bg').classList.add('open'); renderExPicker(); }
+function closeExPicker(e){ if(e.target===document.getElementById('ex-picker-bg')) document.getElementById('ex-picker-bg').classList.remove('open'); }
 function renderExPicker(){
   const q=(document.getElementById('ex-picker-search')?.value||'').toLowerCase();
   const s=getActive();
+  const inst=s.instrument;
   const assigned=new Set(s.exercises.map(ex=>ex.name.toLowerCase()));
-  const items=DB.library.exercises.filter(le=>!assigned.has(le.name.toLowerCase())&&(!q||le.name.toLowerCase().includes(q)||le.tags.some(t=>t.includes(q))||le.notes.toLowerCase().includes(q)));
+  const items=DB.library.exercises.filter(le=>{
+    const instrMatch=le.instrument==='Both'||le.instrument===inst||!le.instrument;
+    return !assigned.has(le.name.toLowerCase())&&instrMatch&&(!q||le.name.toLowerCase().includes(q)||le.tags.some(t=>t.includes(q))||le.notes.toLowerCase().includes(q));
+  });
   document.getElementById('ex-picker-list').innerHTML=items.length?items.map(le=>`<div class="picker-item">
     <div class="picker-item-info">
       <div class="picker-item-name">${esc(le.name)}</div>
@@ -731,13 +1012,13 @@ function renderExPicker(){
 }
 function assignExFromLib(libId){
   const s=getActive(); const le=DB.library.exercises.find(l=>l.id===libId); if(!le||!s) return;
-  s.exercises.push({name:le.name,pattern:le.pattern,status:'pending',notes:le.notes});
+  s.exercises.push({name:le.name,pattern:le.pattern,status:'pending',notes:le.notes,linkedStruggles:[...(le.addressesStruggles||[])],linkedGoals:[...(le.addressesGoals||[])]});
   save(); document.getElementById('ex-picker-bg').classList.remove('open'); renderTab();
 }
-
-// ── NOTES ─────────────────────────────────────────────────
+// ── NOTES ────────────────────────────────────────────────────
 function renderNotes(s){
   if(!s.sessionNotes) s.sessionNotes=[];
+  if(!s.sessionLogs) s.sessionLogs=[];
   const sorted=[...s.sessionNotes].sort((a,b)=>new Date(b.date)-new Date(a.date));
   const topStruggles=s.struggles.slice().sort((a,b)=>({high:0,medium:1,low:2}[a.severity]-{high:0,medium:1,low:2}[b.severity])).slice(0,3);
   const wins=[];
@@ -748,51 +1029,77 @@ function renderNotes(s){
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
     <div>
       <div style="font-size:15px;font-weight:600;">Session Notes</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:2px;">${s.isPrivate?'🔒 Private studio student':'🎸 School of Rock student'}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px;">${s.isPrivate?'🔒 Private studio student':'🎸 Regular student'}</div>
     </div>
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2);">
       <span>Private studio</span>
-      <label class="toggle-switch">
-        <input type="checkbox" ${s.isPrivate?'checked':''} onchange="togglePrivate(this.checked)">
-        <span class="toggle-slider"></span>
-      </label>
+      <label class="toggle-switch"><input type="checkbox" ${s.isPrivate?'checked':''} onchange="togglePrivate(this.checked)"><span class="toggle-slider"></span></label>
     </label>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
     <div>
-      <div class="section-label">Top struggles</div>
-      ${topStruggles.length?topStruggles.map(st=>`<div class="struggle-mini">
-        <div class="struggle-mini-title">⚡ ${esc(st.area)}</div>
-        <div class="struggle-mini-detail">${esc(st.detail)}</div>
-      </div>`).join(''):'<div style="font-size:13px;color:var(--text2);">None logged.</div>'}
-      <button class="add-row-btn" onclick="openModal('struggle')">+ Log struggle</button>
+      <div class="section-label">Recent wins</div>
+      ${wins.length?wins.map(w=>`<div class="win-card">🏆 ${esc(w.win)} <span style="font-size:10px;opacity:0.7;">(${w.date})</span></div>`).join(''):'<div style="color:var(--text2);font-size:13px;">No wins logged yet.</div>'}
     </div>
     <div>
-      <div class="section-label">Recent wins 🏆</div>
-      ${wins.length?wins.map(w=>`<div class="win-card">✓ ${esc(w.win)} <span style="font-size:11px;opacity:0.7;">${w.date}</span></div>`).join(''):'<div style="font-size:13px;color:var(--text2);">Wins appear after you analyze session notes.</div>'}
+      <div class="section-label">Top struggles</div>
+      ${topStruggles.length?topStruggles.map(st=>`<div class="struggle-mini"><div class="struggle-mini-title">${esc(st.area)}</div><div class="struggle-mini-detail">${esc(st.detail)}</div></div>`).join(''):'<div style="color:var(--text2);font-size:13px;">No struggles logged.</div>'}
     </div>
   </div>
 
-  <div class="section-label">Add session notes</div>
-  ${s.isPrivate?`<div style="background:var(--purple-light);border:0.5px solid var(--purple-mid);border-radius:var(--radius);padding:9px 12px;margin-bottom:10px;font-size:12px;color:var(--purple-text);">🔒 Private student — notes won't be in Pike13. You can email a copy after saving.</div>`:''}
-  <textarea class="notes-paste-area" id="note-paste-input" placeholder="${s.isPrivate?'Type your session notes — you can email a copy when done.':'Paste Pike13 notes or type your own observations…'}"></textarea>
-  <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">
-    <input id="note-date-input" type="date" style="padding:6px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-family:var(--font);font-size:13px;" value="${new Date().toISOString().slice(0,10)}">
-    <button class="add-row-btn" style="margin-top:0;" onclick="saveNote()">💾 Save</button>
-    <button class="gen-btn" onclick="saveAndAnalyzeNote()" style="flex:2;min-width:160px;padding:7px 10px;font-size:12px;">✨ Save & analyze</button>
+  <div class="section-label">Log this session</div>
+  <div class="card" style="margin-bottom:16px;">
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Track exercises used in today's session with effectiveness ratings.</div>
+    <div id="session-log-draft">
+      ${sessionLogDraft.map((entry,i)=>`<div class="session-log-entry">
+        <div class="session-log-row">
+          <span style="font-size:13px;font-weight:500;flex:1;">${esc(entry.exerciseName)}</span>
+          <div class="star-rating" id="stars-${i}">
+            ${[1,2,3,4,5].map(n=>`<span class="star ${entry.rating>=n?'lit':''}" onclick="setSessionRating(${i},${n})">★</span>`).join('')}
+          </div>
+          <button class="icon-btn" onclick="removeSessionLogEntry(${i})">✕</button>
+        </div>
+        <input style="width:100%;padding:5px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:12px;font-family:var(--font);" placeholder="What did it unlock? Any breakthroughs?" value="${esc(entry.unlocked||'')}" oninput="updateSessionLogUnlocked(${i},this.value)">
+      </div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button class="add-row-btn" onclick="openSessionExPicker()">+ Add exercise used</button>
+      ${sessionLogDraft.length?`<button class="add-row-btn" style="border-color:var(--green-mid);color:var(--green);" onclick="saveSessionLog()">💾 Save session log</button>`:''}
+    </div>
   </div>
-  ${s.isPrivate?`<div style="margin-top:10px;padding:12px 14px;background:var(--bg2);border-radius:var(--radius);border:0.5px solid var(--border);">
-    <div style="font-size:12px;font-weight:500;margin-bottom:8px;">📧 Email this note</div>
+
+  <div class="section-label">Write session notes</div>
+  <div class="card" style="margin-bottom:16px;">
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <input type="date" id="note-date-input" value="${new Date().toISOString().slice(0,10)}" style="padding:6px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:13px;font-family:var(--font);">
+    </div>
+    <textarea class="notes-paste-area" id="note-paste-input" placeholder="Paste or type your session notes here — what you worked on, what clicked, what to revisit…"></textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="add-row-btn" onclick="saveNote()">Save note</button>
+      <button class="add-row-btn" style="border-color:var(--purple-mid);color:var(--purple);" onclick="saveAndAnalyzeNote()">✨ Save + Analyze</button>
+    </div>
+    ${s.isPrivate?`<div style="margin-top:12px;border-top:0.5px solid var(--border);padding-top:12px;">
     <input id="note-recipient-email" type="email" placeholder="Recipient email (student, parent, or yourself)" style="width:100%;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:13px;font-family:var(--font);margin-bottom:8px;">
     <div style="display:flex;gap:8px;align-items:center;">
-      <button class="send-note-btn ${ejsReady?'ready':'disabled'}" onclick="${ejsReady?'sendNoteEmail()':'showEmailSetupHint()'}" id="send-email-btn">
-        ✉ ${ejsReady?'Send note email':'Set up EmailJS first'}
-      </button>
+      <button class="send-note-btn ${ejsReady?'ready':'disabled'}" onclick="${ejsReady?'sendNoteEmail()':'showEmailSetupHint()'}">✉ ${ejsReady?'Send note email':'Set up EmailJS first'}</button>
       ${!ejsReady?`<span style="font-size:11px;color:var(--text3);">Add EmailJS keys in ⚙ Settings</span>`:''}
     </div>
     <div id="email-status" class="note-send-status"></div>
-  </div>`:''}
+    </div>`:''}
+  </div>
+
+  ${s.sessionLogs&&s.sessionLogs.length?`<div class="section-label">Session exercise logs</div>
+  ${[...s.sessionLogs].reverse().map((log,li)=>`<div class="card" style="margin-bottom:10px;">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">${log.date}</div>
+    ${log.entries.map(e=>`<div class="session-log-entry">
+      <div class="session-log-row">
+        <span style="font-size:13px;font-weight:500;flex:1;">${esc(e.exerciseName)}</span>
+        <span style="color:var(--amber-mid);font-size:14px;">${'★'.repeat(e.rating||0)}${'☆'.repeat(5-(e.rating||0))}</span>
+      </div>
+      ${e.unlocked?`<div style="font-size:12px;color:var(--green);margin-top:3px;">→ ${esc(e.unlocked)}</div>`:''}
+    </div>`).join('')}
+  </div>`).join('')}`:''}
 
   <div class="section-label" style="margin-top:20px;">Note history <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);font-size:11px;">(newest first)</span></div>
   ${sorted.length?sorted.map(n=>{
@@ -812,6 +1119,37 @@ function renderNotes(s){
   }).join(''):'<div style="color:var(--text2);font-size:13px;padding:12px 0;">No notes yet.</div>'}`;
 }
 
+// Session log functions
+function openSessionExPicker(){ document.getElementById('session-ex-picker-bg').classList.add('open'); renderSessionExPicker(); }
+function closeSessionExPicker(e){ if(e.target===document.getElementById('session-ex-picker-bg')) document.getElementById('session-ex-picker-bg').classList.remove('open'); }
+function renderSessionExPicker(){
+  const q=(document.getElementById('session-ex-search')?.value||'').toLowerCase();
+  const s=getActive(); if(!s) return;
+  const items=s.exercises.filter(ex=>!q||ex.name.toLowerCase().includes(q));
+  document.getElementById('session-ex-picker-list').innerHTML=items.length?items.map((ex,i)=>`<div class="picker-item">
+    <div class="picker-item-info">
+      <div class="picker-item-name">${esc(ex.name)}</div>
+      <div class="picker-item-meta">${esc(ex.pattern)}</div>
+    </div>
+    <button class="lib-assign-btn" onclick="addToSessionLog('${esc(ex.name).replace(/'/g,'\\&apos;')}')">+ Log</button>
+  </div>`).join(''):'<div style="color:var(--text2);font-size:13px;padding:12px 0;">No exercises yet. Add some in the Exercises tab first.</div>';
+}
+function addToSessionLog(name){
+  sessionLogDraft.push({exerciseName:name,rating:0,unlocked:''});
+  document.getElementById('session-ex-picker-bg').classList.remove('open');
+  renderTab();
+}
+function removeSessionLogEntry(i){ sessionLogDraft.splice(i,1); renderTab(); }
+function setSessionRating(i,r){ sessionLogDraft[i].rating=r; renderTab(); }
+function updateSessionLogUnlocked(i,v){ sessionLogDraft[i].unlocked=v; }
+function saveSessionLog(){
+  const s=getActive(); if(!s) return;
+  if(!s.sessionLogs) s.sessionLogs=[];
+  s.sessionLogs.push({date:new Date().toISOString().slice(0,10),entries:[...sessionLogDraft]});
+  sessionLogDraft=[];
+  save(); renderTab();
+}
+
 function highlightNote(text,s){
   let t=esc(text);
   const sw=s.struggles.map(st=>st.area.split(' ')[0].toLowerCase()).filter(w=>w.length>3);
@@ -822,7 +1160,6 @@ function highlightNote(text,s){
   ww.forEach(w=>{t=t.replace(new RegExp('\\b('+w+'\\w*)\\b','gi'),'<span class="highlight-win">$1</span>');});
   return t;
 }
-
 function renderNoteAnalysis(analysis,noteIdx){
   if(analysis.loading) return `<div style="display:flex;align-items:center;gap:7px;padding:8px 0;color:var(--purple);font-size:12px;"><div class="spinner"></div>Analyzing…</div>`;
   if(analysis.error) return `<div class="ai-error" style="font-size:12px;">⚠ ${esc(analysis.error)}</div>`;
@@ -838,38 +1175,15 @@ function renderNoteAnalysis(analysis,noteIdx){
     ${exercises?`<div class="analysis-section-title">Exercises to try</div>${exercises}`:''}
   </div>`;
 }
-
-function saveNote(){
-  const s=getActive(); if(!s) return;
-  const text=document.getElementById('note-paste-input')?.value?.trim(); if(!text) return;
-  if(!s.sessionNotes) s.sessionNotes=[];
-  const date=document.getElementById('note-date-input')?.value||new Date().toISOString().slice(0,10);
-  s.sessionNotes.push({text,date,analysis:null});
-  save(); renderTab();
-}
-async function saveAndAnalyzeNote(){
-  const s=getActive(); if(!s) return;
-  const text=document.getElementById('note-paste-input')?.value?.trim(); if(!text){alert('Add some notes first!');return;}
-  if(!s.sessionNotes) s.sessionNotes=[];
-  const date=document.getElementById('note-date-input')?.value||new Date().toISOString().slice(0,10);
-  s.sessionNotes.push({text,date,analysis:{loading:true}});
-  save(); renderTab();
-  await analyzeNote(s.sessionNotes.length-1);
-}
+function togglePrivate(v){ const s=getActive(); if(!s) return; s.isPrivate=v; save(); renderTab(); }
+function saveNote(){ const s=getActive(); if(!s) return; const text=document.getElementById('note-paste-input')?.value?.trim(); if(!text) return; if(!s.sessionNotes) s.sessionNotes=[]; const date=document.getElementById('note-date-input')?.value||new Date().toISOString().slice(0,10); s.sessionNotes.push({text,date,analysis:null}); save(); renderTab(); }
+async function saveAndAnalyzeNote(){ const s=getActive(); if(!s) return; const text=document.getElementById('note-paste-input')?.value?.trim(); if(!text){alert('Add some notes first!');return;} if(!s.sessionNotes) s.sessionNotes=[]; const date=document.getElementById('note-date-input')?.value||new Date().toISOString().slice(0,10); s.sessionNotes.push({text,date,analysis:{loading:true}}); save(); renderTab(); await analyzeNote(s.sessionNotes.length-1); }
 async function analyzeNote(i){
   const s=getActive(); if(!s||!s.sessionNotes[i]) return;
   const key=geminiKey(); if(!key){s.sessionNotes[i].analysis={error:'No Gemini API key.'};save();renderTab();return;}
   s.sessionNotes[i].analysis={loading:true}; renderTab();
   const note=s.sessionNotes[i];
-  const prompt=`You are a vocal coach assistant. Parse these session notes for student "${s.name}" (${s.level}).
-Goals: ${s.goals.join('; ')||'none'}
-Struggles: ${s.struggles.map(x=>x.area).join(', ')||'none'}
-Exercises: ${s.exercises.map(e=>e.name+' ['+e.status+']').join(', ')||'none'}
-
-Notes: """${note.text}"""
-
-Respond ONLY with raw JSON — no markdown:
-{"summary":"1 sentence","wins":["specific win or breakthrough"],"goals":["suggested goal"],"struggles":[{"area":"","detail":"","severity":"low|medium|high"}],"exercises":[{"name":"","pattern":""}]}`;
+  const prompt=`You are a vocal coach assistant. Parse these session notes for student "${s.name}" (${s.level}).\nGoals: ${s.goals.join('; ')||'none'}\nStruggles: ${s.struggles.map(x=>x.area).join(', ')||'none'}\nExercises: ${s.exercises.map(e=>e.name+' ['+e.status+']').join(', ')||'none'}\n\nNotes: """${note.text}"""\n\nRespond ONLY with raw JSON:\n{"summary":"1 sentence","wins":["specific win"],"goals":["suggested goal"],"struggles":[{"area":"","detail":"","severity":"low|medium|high"}],"exercises":[{"name":"","pattern":""}]}`;
   try{
     const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.4}})});
     const data=await res.json();
@@ -878,94 +1192,20 @@ Respond ONLY with raw JSON — no markdown:
   }catch(e){s.sessionNotes[i].analysis={error:'Could not parse response.'};}
   save(); renderTab();
 }
-function deleteStudent(){
-  const s=getActive(); if(!s) return;
-  if(!confirm(`Delete ${s.name} and all their data? This cannot be undone.`)) return;
-  DB.students=DB.students.filter(st=>st.id!==s.id);
-  DB.activeId=DB.students.length?DB.students[0].id:null;
-  DB.view=DB.students.length?'student':'student';
-  save(); renderSidebar(); renderPanels();
-}
-
-function deleteGoal(i){ const s=getActive(); s.goals.splice(i,1); save(); renderTab(); }
-function achieveGoal(i){ const s=getActive(); if(!s) return; if(!s.achievedGoals) s.achievedGoals=[]; s.achievedGoals.push(s.goals[i]); s.goals.splice(i,1); save(); renderTab(); }
-function unachieveGoal(i){ const s=getActive(); if(!s) return; s.goals.push(s.achievedGoals[i]); s.achievedGoals.splice(i,1); save(); renderTab(); }
-function showEmailSetupHint(){ alert('To enable email sending, add your EmailJS keys in ⚙ Settings in the sidebar.\n\nFree account at emailjs.com — takes about 5 minutes to set up.'); }
-
-function buildNoteEmailBody(s, noteText, noteDate){
-  const songs=s.songs.filter(sg=>!sg.archived).map(sg=>sg.title+' ('+sg.key+')').join(', ')||'None';
-  const goals=s.goals.join('\n• ')||'None';
-  const struggles=s.struggles.slice(0,3).map(st=>st.area+' ('+st.severity+')').join(', ')||'None';
-  return `Session Notes — ${s.name}
-Date: ${noteDate}
----
-
-${noteText}
-
----
-Current songs: ${songs}
-Goals:
-• ${goals}
-Top struggles: ${struggles}
-
-Sent via Voice Studio Tracker`;
-}
-
-async function sendNoteEmail(){
-  const s=getActive(); if(!s) return;
-  const noteText=document.getElementById('note-paste-input')?.value?.trim();
-  const recipient=document.getElementById('note-recipient-email')?.value?.trim();
-  const noteDate=document.getElementById('note-date-input')?.value||new Date().toISOString().slice(0,10);
-  const statusEl=document.getElementById('email-status');
-  if(!noteText){statusEl.className='note-send-status err';statusEl.textContent='⚠ Write some notes first.';return;}
-  if(!recipient){statusEl.className='note-send-status err';statusEl.textContent='⚠ Enter a recipient email.';return;}
-  await doSendEmail(s, noteText, noteDate, recipient, statusEl, null);
-}
-
-async function sendHistoryNoteEmail(noteIdx){
-  const s=getActive(); if(!s) return;
-  const note=s.sessionNotes[noteIdx]; if(!note) return;
-  const recipient=prompt('Send to email address:'); if(!recipient) return;
-  await doSendEmail(s, note.text, note.date, recipient, null, noteIdx);
-}
-
-async function doSendEmail(s, noteText, noteDate, recipient, statusEl, noteIdx){
-  const pubKey=loadApiKey('ejspub');
-  const svcId=loadApiKey('ejssvc');
-  const tplId=loadApiKey('ejstpl');
-  const senderEmail=document.getElementById('sender-email')?.value||loadApiKey('senderemail')||'';
-  if(!pubKey||!svcId||!tplId){ if(statusEl){statusEl.className='note-send-status err';statusEl.textContent='⚠ EmailJS not configured — check Settings.';} return; }
-  if(statusEl){statusEl.className='note-send-status';statusEl.textContent='Sending…';}
-  try{
-    emailjs.init({publicKey:pubKey});
-    const body=buildNoteEmailBody(s,noteText,noteDate);
-    const result=await emailjs.send(svcId,tplId,{
-      to_email: recipient,
-      from_name: 'Voice Studio Tracker',
-      reply_to: senderEmail,
-      subject: `Session Notes — ${s.name} (${noteDate})`,
-      message: body,
-      student_name: s.name,
-      session_date: noteDate,
-      note_content: noteText
-    });
-    if(result.status===200){
-      if(statusEl){statusEl.className='note-send-status ok';statusEl.textContent='✓ Email sent successfully!';}
-      if(noteIdx!=null){s.sessionNotes[noteIdx].emailed=true;save();renderTab();}
-    } else {
-      if(statusEl){statusEl.className='note-send-status err';statusEl.textContent='⚠ Send failed (status '+result.status+').';}
-    }
-  }catch(e){
-    if(statusEl){statusEl.className='note-send-status err';statusEl.textContent='⚠ Error: '+(e.text||e.message||'Check your EmailJS config');}
-  }
-}
-
 function deleteNote(i){const s=getActive();s.sessionNotes.splice(i,1);save();renderTab();}
 function addSuggestedGoal(ni,gi){const s=getActive();const g=s.sessionNotes[ni]?.analysis?.goals?.[gi];if(g&&!s.goals.includes(g)){s.goals.push(g);save();renderTab();}}
 function addSuggestedStruggle(ni,si){const s=getActive();const st=s.sessionNotes[ni]?.analysis?.struggles?.[si];if(st){s.struggles.push({area:st.area,detail:st.detail,severity:st.severity||'medium'});save();renderTab();}}
-function addSuggestedExercise(ni,ei){const s=getActive();const ex=s.sessionNotes[ni]?.analysis?.exercises?.[ei];if(ex){s.exercises.push({name:ex.name,pattern:ex.pattern,status:'pending',notes:'From session notes'});save();DB.activeTab='exercises';renderTab();}}
-
-// ── EXERCISES ─────────────────────────────────────────────
+function addSuggestedExercise(ni,ei){const s=getActive();const ex=s.sessionNotes[ni]?.analysis?.exercises?.[ei];if(ex){s.exercises.push({name:ex.name,pattern:ex.pattern,status:'pending',notes:'From session notes',linkedStruggles:[],linkedGoals:[]});save();DB.activeTab='exercises';renderTab();}}
+function showEmailSetupHint(){ alert('To enable email sending, add your EmailJS keys in ⚙ Settings in the sidebar.\n\nFree account at emailjs.com — takes about 5 minutes to set up.'); }
+function deleteStudent(){ const s=getActive(); if(!s) return; if(!confirm(`Delete ${s.name} and all their data? This cannot be undone.`)) return; DB.students=DB.students.filter(st=>st.id!==s.id); DB.activeId=DB.students.length?DB.students[0].id:null; save(); renderSidebar(); renderPanels(); }
+function deleteGoal(i){ const s=getActive(); s.goals.splice(i,1); save(); renderTab(); }
+function achieveGoal(i){ const s=getActive(); if(!s) return; if(!s.achievedGoals) s.achievedGoals=[]; s.achievedGoals.push(s.goals[i]); s.goals.splice(i,1); save(); renderTab(); }
+function unachieveGoal(i){ const s=getActive(); if(!s) return; s.goals.push(s.achievedGoals[i]); s.achievedGoals.splice(i,1); save(); renderTab(); }
+function buildNoteEmailBody(s,noteText,noteDate){ const songs=s.songs.filter(sg=>!sg.archived).map(sg=>sg.title+' ('+sg.key+')').join(', ')||'None'; const goals=s.goals.join('\n• ')||'None'; const struggles=s.struggles.slice(0,3).map(st=>st.area+' ('+st.severity+')').join(', ')||'None'; return `Session Notes — ${s.name}\nDate: ${noteDate}\n---\n\n${noteText}\n\n---\nCurrent songs: ${songs}\nGoals:\n• ${goals}\nTop struggles: ${struggles}\n\nSent via Voice Studio Tracker`; }
+async function sendNoteEmail(){ const s=getActive(); if(!s) return; const noteText=document.getElementById('note-paste-input')?.value?.trim(); const recipient=document.getElementById('note-recipient-email')?.value?.trim(); const noteDate=document.getElementById('note-date-input')?.value||new Date().toISOString().slice(0,10); const statusEl=document.getElementById('email-status'); if(!noteText){statusEl.className='note-send-status err';statusEl.textContent='⚠ Write some notes first.';return;} if(!recipient){statusEl.className='note-send-status err';statusEl.textContent='⚠ Enter a recipient email.';return;} await doSendEmail(s,noteText,noteDate,recipient,statusEl,null); }
+async function sendHistoryNoteEmail(noteIdx){ const s=getActive(); if(!s) return; const note=s.sessionNotes[noteIdx]; if(!note) return; const recipient=prompt('Send to email address:'); if(!recipient) return; await doSendEmail(s,note.text,note.date,recipient,null,noteIdx); }
+async function doSendEmail(s,noteText,noteDate,recipient,statusEl,noteIdx){ const pubKey=loadApiKey('ejspub'); const svcId=loadApiKey('ejssvc'); const tplId=loadApiKey('ejstpl'); const senderEmail=document.getElementById('sender-email')?.value||loadApiKey('senderemail')||''; if(!pubKey||!svcId||!tplId){if(statusEl){statusEl.className='note-send-status err';statusEl.textContent='⚠ EmailJS not configured.';} return;} if(statusEl){statusEl.className='note-send-status';statusEl.textContent='Sending…';} try{ emailjs.init({publicKey:pubKey}); const body=buildNoteEmailBody(s,noteText,noteDate); const result=await emailjs.send(svcId,tplId,{to_email:recipient,from_name:'Voice Studio Tracker',reply_to:senderEmail,subject:`Session Notes — ${s.name} (${noteDate})`,message:body,student_name:s.name,session_date:noteDate,note_content:noteText}); if(result.status===200){if(statusEl){statusEl.className='note-send-status ok';statusEl.textContent='✓ Email sent!';} if(noteIdx!=null){s.sessionNotes[noteIdx].emailed=true;save();renderTab();}} else {if(statusEl){statusEl.className='note-send-status err';statusEl.textContent='⚠ Send failed.';}} }catch(e){if(statusEl){statusEl.className='note-send-status err';statusEl.textContent='⚠ Error: '+(e.text||e.message||'Check EmailJS config');}} }
+// ── EXERCISES ────────────────────────────────────────────────
 function renderExercises(s){
   const dm={success:'dot-green',partial:'dot-amber',pending:'dot-gray',struggle:'dot-coral'};
   return `
@@ -976,6 +1216,8 @@ function renderExercises(s){
       <div class="ex-info">
         <div class="ex-name">${esc(ex.name)}</div>
         <div class="ex-detail">${esc(ex.pattern)}${ex.notes?' · '+esc(ex.notes):''}</div>
+        ${(ex.linkedStruggles||[]).length?`<div style="margin-top:4px;">${ex.linkedStruggles.map(st=>`<span class="struggle-link-chip">⚡ ${esc(st)}</span>`).join('')}</div>`:''}
+        ${(ex.linkedGoals||[]).length?`<div style="margin-top:2px;">${ex.linkedGoals.map(g=>`<span class="goal-link-chip">🎯 ${esc(g.slice(0,30))}${g.length>30?'…':''}</span>`).join('')}</div>`:''}
       </div>
       <select class="status-sel" onchange="updateExStatus(${i},this.value)">
         <option value="pending"${ex.status==='pending'?' selected':''}>Pending</option>
@@ -983,6 +1225,7 @@ function renderExercises(s){
         <option value="success"${ex.status==='success'?' selected':''}>Mastered</option>
         <option value="struggle"${ex.status==='struggle'?' selected':''}>Not working</option>
       </select>
+      <button class="icon-btn" onclick="openModal('editexercise',${i})" title="Edit links">✏️</button>
       <button class="icon-btn" onclick="deleteExercise(${i})">🗑</button>
     </div>`).join(''):'<div style="text-align:center;padding:16px;color:var(--text2);">No exercises yet.</div>'}
   </div>
@@ -992,9 +1235,50 @@ function renderExercises(s){
   </div>`;
 }
 function deleteExercise(i){const s=getActive();s.exercises.splice(i,1);save();renderTab();}
-function updateExStatus(i,v){const s=getActive();s.exercises[i].status=v;save();renderTab();}
+function updateExStatus(i,v){const s=getActive();s.exercises[i].status=v;save();}
 
-// ── LESSON PLAN ───────────────────────────────────────────
+// ── CURRICULUM ────────────────────────────────────────────────
+function renderCurriculum(s){
+  const levels=CURRICULUM_LEVELS[s.instrument]||CURRICULUM_LEVELS.Voice;
+  const levelNames=Object.keys(levels);
+  return `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <div>
+      <div style="font-size:15px;font-weight:600;">Curriculum Checklist</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px;">${s.instrument==='Keys'?'🎹 Keys curriculum':'🎤 Voice curriculum'} for ${esc(s.name)}</div>
+    </div>
+  </div>
+  ${levelNames.map(level=>{
+    const items=levels[level];
+    const done=items.filter((_,i)=>(s.curriculumProgress||{})[level+'_'+i]).length;
+    const pct=Math.round(done/items.length*100);
+    const isCurrentLevel=s.level===level;
+    return `<div class="curriculum-level-block">
+      <div class="curriculum-level-title">
+        ${isCurrentLevel?`<span style="color:var(--purple);">▶</span>`:''} ${level} ${isCurrentLevel?`<span class="badge badge-purple" style="font-size:10px;">Current level</span>`:''}
+        <span style="margin-left:auto;font-size:11px;color:var(--text3);">${done}/${items.length} · ${pct}%</span>
+      </div>
+      <div class="curriculum-progress-bar"><div class="curriculum-progress-fill" style="width:${pct}%"></div></div>
+      <div class="card" style="margin-top:8px;padding:10px 14px;">
+        ${items.map((item,i)=>{
+          const checked=!!((s.curriculumProgress||{})[level+'_'+i]);
+          return `<div class="curriculum-item ${checked?'done':''}">
+            <input type="checkbox" ${checked?'checked':''} onchange="toggleCurriculumItem('${level}',${i},this.checked)">
+            <span>${esc(item)}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('')}`;
+}
+function toggleCurriculumItem(level,i,checked){
+  const s=getActive(); if(!s) return;
+  if(!s.curriculumProgress) s.curriculumProgress={};
+  s.curriculumProgress[level+'_'+i]=checked;
+  save(); renderTab();
+}
+
+// ── LESSON PLAN ───────────────────────────────────────────────
 function renderLessonPlan(s){
   if(DB.loadingPlan) return `<div class="ai-box"><div class="ai-header"><span>🎯</span><span class="ai-title">Building lesson plan…</span></div><div style="display:flex;align-items:center;gap:8px;color:var(--purple);font-size:13px;"><div class="spinner"></div>Reading notes and history…</div></div>`;
   const sorted=(s.sessionNotes||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -1024,32 +1308,15 @@ function renderLessonPlan(s){
     <button class="gen-btn" onclick="generateLessonPlan()">🎯 Generate lesson plan</button>
   </div>`;
 }
-
-function renderLessonSection(title,cls,items){
-  if(!items||!items.length) return '';
-  return `<div class="lesson-section"><div class="lesson-section-title">${title}</div>${items.map(item=>`<div class="lesson-item ${cls}"><strong>${esc(item.name||item)}</strong>${item.instruction?`<div class="lesson-note">${esc(item.instruction)}</div>`:''}${item.why?`<div class="lesson-note" style="color:var(--purple);">Why: ${esc(item.why)}</div>`:''}</div>`).join('')}</div>`;
-}
-
+function renderLessonSection(title,cls,items){ if(!items||!items.length) return ''; return `<div class="lesson-section"><div class="lesson-section-title">${title}</div>${items.map(item=>`<div class="lesson-item ${cls}"><strong>${esc(item.name||item)}</strong>${item.instruction?`<div class="lesson-note">${esc(item.instruction)}</div>`:''}${item.why?`<div class="lesson-note" style="color:var(--purple);">Why: ${esc(item.why)}</div>`:''}</div>`).join('')}</div>`; }
 async function generateLessonPlan(){
   const s=getActive(); if(!s) return;
   const key=geminiKey(); if(!key){alert('Add your Gemini API key in the sidebar first.');return;}
   DB.loadingPlan=true; renderTab();
   const sorted=(s.sessionNotes||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
   const recentNotes=sorted.slice(0,3).map((n,i)=>`Session ${i+1} (${n.date}):\n${n.text}`).join('\n\n---\n\n');
-  const libEx=DB.library.exercises.map(e=>e.name+' ['+e.tags.join(',')+'] — '+e.notes).join('\n');
-  const prompt=`You are an expert vocal coach. Build a practical lesson plan.
-
-${buildStudentContext(s)}
-
-TEACHER'S EXERCISE LIBRARY:
-${libEx}
-
-Most recent notes:
-${recentNotes||'None yet.'}
-
-Prioritize what came up most recently. Be specific — name exercises with instructions. Respond ONLY with raw JSON:
-{"overview":"2-3 sentence focus summary","warmup":[{"name":"","instruction":"","why":""}],"focus":[{"name":"","instruction":"","why":""}],"repertoire":[{"name":"song + section","instruction":""}],"cooldown":[{"name":"","instruction":""}],"watchFor":"one key observation"}`;
-
+  const libEx=DB.library.exercises.filter(le=>le.instrument==='Both'||le.instrument===s.instrument||!le.instrument).map(e=>e.name+' ['+e.tags.join(',')+'] — '+e.notes).join('\n');
+  const prompt=`You are an expert vocal coach. Build a practical lesson plan.\n\n${buildStudentContext(s)}\n\nTEACHER'S EXERCISE LIBRARY:\n${libEx}\n\nMost recent notes:\n${recentNotes||'None yet.'}\n\nPrioritize what came up most recently. Be specific. Respond ONLY with raw JSON:\n{"overview":"2-3 sentence focus summary","warmup":[{"name":"","instruction":"","why":""}],"focus":[{"name":"","instruction":"","why":""}],"repertoire":[{"name":"song + section","instruction":""}],"cooldown":[{"name":"","instruction":""}],"watchFor":"one key observation"}`;
   try{
     const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.5}})});
     const data=await res.json();
@@ -1058,66 +1325,112 @@ Prioritize what came up most recently. Be specific — name exercises with instr
   }catch(e){s.lessonPlan={error:'Could not parse response.',generatedAt:Date.now()};}
   DB.loadingPlan=false; save(); renderTab();
 }
-
-// ── LIBRARY ───────────────────────────────────────────────
+function buildStudentContext(s){
+  const analyzed=(s.sessionNotes||[]).filter(n=>n.analysis&&!n.analysis.loading&&!n.analysis.error);
+  return `Student: ${s.name}, Level: ${s.level}, Instrument: ${s.instrument||'Voice'}
+Goals: ${s.goals.join('; ')||'none'}
+Current songs: ${s.songs.filter(sg=>!sg.archived).map(sg=>sg.title+' (Key '+sg.key+') '+((sg.tags||[]).map(t=>'#'+t).join(' '))).join(', ')||'none'}
+Archived songs: ${s.songs.filter(sg=>sg.archived).map(sg=>sg.title).join(', ')||'none'}
+Struggles: ${s.struggles.map(x=>x.area+' ('+x.severity+'): '+x.detail).join(' | ')||'none'}
+Exercise history: ${s.exercises.map(e=>e.name+' ['+e.status+']: '+e.notes).join(' | ')||'none'}
+Recent wins: ${analyzed.flatMap(n=>n.analysis?.wins||[]).slice(0,5).join('; ')||'none'}`;
+}
+// ── LIBRARY ───────────────────────────────────────────────────
 function renderLibraryPanel(){
   document.getElementById('library-content').innerHTML=`
   <div class="subtab-bar">
     <div class="subtab ${libSubtab==='songs'?'active':''}" onclick="setLibSubtab('songs')">🎵 Songs</div>
     <div class="subtab ${libSubtab==='exercises'?'active':''}" onclick="setLibSubtab('exercises')">✅ Exercises</div>
+    <div class="subtab ${libSubtab==='curriculum'?'active':''}" onclick="setLibSubtab('curriculum')">📖 Curriculum</div>
   </div>
-  ${libSubtab==='songs'?renderLibSongs():renderLibExercises()}`;
+  ${libSubtab==='songs'?renderLibSongs():libSubtab==='exercises'?renderLibExercises():renderLibCurriculum()}`;
 }
-function setLibSubtab(t){libSubtab=t;renderLibraryPanel();}
+function setLibSubtab(t){ libSubtab=t; renderLibraryPanel(); }
+function setLibFilter(f){ libInstrumentFilter=f; renderLibraryPanel(); }
 
 function renderLibSongs(){
-  const songs=DB.library.songs;
+  const filterChips=`<div class="filter-chips">
+    <span class="filter-chip ${libInstrumentFilter==='all'?'active':''}" onclick="setLibFilter('all')">All</span>
+    <span class="filter-chip ${libInstrumentFilter==='Voice'?'active':''}" onclick="setLibFilter('Voice')">🎤 Voice</span>
+    <span class="filter-chip ${libInstrumentFilter==='Keys'?'keys-active':''}" onclick="setLibFilter('Keys')">🎹 Keys</span>
+  </div>`;
   return `
+  ${filterChips}
   <input class="search-input" id="lib-song-search" placeholder="Search songs by title or tag…" oninput="renderLibraryPanel()">
-  ${(() => {
+  ${(()=>{
     const q=(document.getElementById('lib-song-search')?.value||'').toLowerCase();
-    const filtered=songs.filter(s=>!q||s.title.toLowerCase().includes(q)||s.tags.some(t=>t.includes(q)));
-    return filtered.length?filtered.map((ls,i)=>`<div class="lib-card">
+    const songs=DB.library.songs.filter(ls=>{
+      const instrMatch=libInstrumentFilter==='all'||ls.instrument===libInstrumentFilter||!ls.instrument;
+      return instrMatch&&(!q||ls.title.toLowerCase().includes(q)||(ls.tags||[]).some(t=>t.includes(q)));
+    });
+    return songs.length?songs.map((ls,i)=>`<div class="lib-card">
       <div class="card-row">
         <div>
-          <div class="lib-card-title">${esc(ls.title)}</div>
-          <div class="lib-card-meta">Key ${esc(ls.key)}${ls.composer?' · '+esc(ls.composer):''}</div>
-          <div style="margin-top:5px;">${(ls.tags||[]).map((t,ti)=>`<span class="hashtag">#${esc(t)} <span style="cursor:pointer;margin-left:2px;" onclick="removeLibSongTag(${i},${ti})">×</span></span>`).join('')}</div>
+          <div class="lib-card-title">${esc(ls.title)} ${ls.instrument==='Keys'?`<span class="badge badge-teal" style="font-size:10px;">Keys</span>`:`<span class="badge badge-purple" style="font-size:10px;">Voice</span>`}</div>
+          <div class="lib-card-meta">Key ${esc(ls.key)}${ls.composer?' · '+esc(ls.composer):''}${ls.artist?' · '+esc(ls.artist):''}</div>
+          <div style="margin-top:5px;">${(ls.tags||[]).map((t,ti)=>`<span class="hashtag">#${esc(t)} <span style="cursor:pointer;margin-left:2px;" onclick="removeLibSongTag(${DB.library.songs.indexOf(ls)},${ti})">×</span></span>`).join('')}</div>
         </div>
-        <button class="icon-btn" onclick="deleteLibSong(${songs.indexOf(ls)})">🗑</button>
+        <button class="icon-btn" onclick="deleteLibSong(${DB.library.songs.indexOf(ls)})">🗑</button>
       </div>
       ${ls.notes?`<div class="lib-card-notes">${esc(ls.notes)}</div>`:''}
       <div class="hashtag-input-wrap" style="margin-top:8px;">
-        <input class="hashtag-input" placeholder="+ tag" onkeydown="addLibSongTagKey(event,${songs.indexOf(ls)},this)">
+        <input class="hashtag-input" placeholder="+ tag" onkeydown="addLibSongTagKey(event,${DB.library.songs.indexOf(ls)},this)">
       </div>
-    </div>`):'<div class="empty-state">No songs in library yet.</div>';
+    </div>`).join(''):'<div class="empty-state">No songs in library yet.</div>';
   })()}
   <button class="add-row-btn" onclick="openModal('libsong')" style="margin-top:8px;">+ Add song to library</button>`;
 }
 
 function renderLibExercises(){
-  const exercises=DB.library.exercises;
+  const filterChips=`<div class="filter-chips">
+    <span class="filter-chip ${libInstrumentFilter==='all'?'active':''}" onclick="setLibFilter('all')">All</span>
+    <span class="filter-chip ${libInstrumentFilter==='Voice'?'active':''}" onclick="setLibFilter('Voice')">🎤 Voice</span>
+    <span class="filter-chip ${libInstrumentFilter==='Keys'?'keys-active':''}" onclick="setLibFilter('Keys')">🎹 Keys</span>
+    <span class="filter-chip ${libInstrumentFilter==='Both'?'active':''}" onclick="setLibFilter('Both')">Both</span>
+  </div>`;
   return `
+  ${filterChips}
   <input class="search-input" id="lib-ex-search" placeholder="Search exercises by name or tag…" oninput="renderLibraryPanel()">
-  ${(() => {
+  ${(()=>{
     const q=(document.getElementById('lib-ex-search')?.value||'').toLowerCase();
-    const filtered=exercises.filter(e=>!q||e.name.toLowerCase().includes(q)||e.tags.some(t=>t.includes(q))||e.notes.toLowerCase().includes(q));
-    return filtered.length?filtered.map((le,i)=>`<div class="lib-card">
+    const exercises=DB.library.exercises.filter(le=>{
+      const instrMatch=libInstrumentFilter==='all'||le.instrument===libInstrumentFilter;
+      return instrMatch&&(!q||le.name.toLowerCase().includes(q)||(le.tags||[]).some(t=>t.includes(q))||(le.notes||'').toLowerCase().includes(q));
+    });
+    return exercises.length?exercises.map((le,i)=>`<div class="lib-card">
       <div class="card-row">
         <div>
-          <div class="lib-card-title">${esc(le.name)}</div>
+          <div class="lib-card-title">${esc(le.name)} ${le.instrument==='Keys'?`<span class="badge badge-teal" style="font-size:10px;">Keys</span>`:le.instrument==='Voice'?`<span class="badge badge-purple" style="font-size:10px;">Voice</span>`:`<span class="badge badge-gray" style="font-size:10px;">Both</span>`}</div>
           <div class="lib-card-meta">${esc(le.pattern)}</div>
-          <div style="margin-top:5px;">${(le.tags||[]).map((t,ti)=>`<span class="hashtag amber">#${esc(t)} <span style="cursor:pointer;margin-left:2px;" onclick="removeLibExTag(${exercises.indexOf(le)},${ti})">×</span></span>`).join('')}</div>
+          <div style="margin-top:5px;">${(le.tags||[]).map((t,ti)=>`<span class="hashtag amber">#${esc(t)} <span style="cursor:pointer;margin-left:2px;" onclick="removeLibExTag(${DB.library.exercises.indexOf(le)},${ti})">×</span></span>`).join('')}</div>
+          ${(le.addressesStruggles||[]).length?`<div style="margin-top:4px;">${le.addressesStruggles.map(st=>`<span class="struggle-link-chip">⚡ ${esc(st)}</span>`).join('')}</div>`:''}
+          ${(le.addressesGoals||[]).length?`<div style="margin-top:2px;">${le.addressesGoals.map(g=>`<span class="goal-link-chip">🎯 ${esc(g.slice(0,30))}${g.length>30?'…':''}</span>`).join('')}</div>`:''}
         </div>
-        <button class="icon-btn" onclick="deleteLibEx(${exercises.indexOf(le)})">🗑</button>
+        <button class="icon-btn" onclick="deleteLibEx(${DB.library.exercises.indexOf(le)})">🗑</button>
       </div>
       ${le.notes?`<div class="lib-card-notes">${esc(le.notes)}</div>`:''}
       <div class="hashtag-input-wrap" style="margin-top:8px;">
-        <input class="hashtag-input" placeholder="+ tag" onkeydown="addLibExTagKey(event,${exercises.indexOf(le)},this)">
+        <input class="hashtag-input" placeholder="+ tag" onkeydown="addLibExTagKey(event,${DB.library.exercises.indexOf(le)},this)">
       </div>
-    </div>`):'<div class="empty-state">No exercises in library yet.</div>';
+    </div>`).join(''):'<div class="empty-state">No exercises in library yet.</div>';
   })()}
   <button class="add-row-btn" onclick="openModal('libexercise')" style="margin-top:8px;">+ Add exercise to library</button>`;
+}
+
+function renderLibCurriculum(){
+  return `
+  <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6;">Master curriculum templates — progress is tracked per student in their Curriculum tab.</div>
+  ${Object.keys(CURRICULUM_LEVELS).map(inst=>`
+    <div style="margin-bottom:24px;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:12px;">${inst==='Keys'?'🎹':'🎤'} ${inst}</div>
+      ${Object.keys(CURRICULUM_LEVELS[inst]).map(level=>`
+        <div class="curriculum-level-block">
+          <div class="curriculum-level-title">${level}</div>
+          <div class="card" style="padding:10px 14px;">
+            ${CURRICULUM_LEVELS[inst][level].map(item=>`<div style="padding:6px 0;border-bottom:0.5px solid var(--border);font-size:13px;">${esc(item)}</div>`).join('')}
+          </div>
+        </div>`).join('')}
+    </div>`).join('')}`;
 }
 
 function addLibSongTagKey(e,idx,input){ if(e.key==='Enter'||e.key===','){ e.preventDefault(); const val=input.value.trim().replace(/^#/,'').replace(/\s+/g,'-').toLowerCase(); if(val){ if(!DB.library.songs[idx].tags) DB.library.songs[idx].tags=[]; if(!DB.library.songs[idx].tags.includes(val)) DB.library.songs[idx].tags.push(val); save(); renderLibraryPanel(); } } }
@@ -1127,100 +1440,239 @@ function addLibExTagKey(e,idx,input){ if(e.key==='Enter'||e.key===','){ e.preven
 function removeLibExTag(idx,ti){ DB.library.exercises[idx].tags.splice(ti,1); save(); renderLibraryPanel(); }
 function deleteLibEx(idx){ if(confirm('Remove from library?')){ DB.library.exercises.splice(idx,1); save(); renderLibraryPanel(); } }
 
-// ── Shared context ────────────────────────────────────────
-function buildStudentContext(s){
-  const analyzed=(s.sessionNotes||[]).filter(n=>n.analysis&&!n.analysis.loading&&!n.analysis.error);
-  return `Student: ${s.name}, Level: ${s.level}
-Goals: ${s.goals.join('; ')||'none'}
-Current songs: ${s.songs.filter(sg=>!sg.archived).map(sg=>sg.title+' (Key '+sg.key+') '+((sg.tags||[]).map(t=>'#'+t).join(' '))).join(', ')||'none'}
-Archived songs: ${s.songs.filter(sg=>sg.archived).map(sg=>sg.title+' '+((sg.tags||[]).map(t=>'#'+t).join(' '))).join(', ')||'none'}
-Struggles: ${s.struggles.map(x=>x.area+' ('+x.severity+'): '+x.detail).join(' | ')||'none'}
-Exercise history: ${s.exercises.map(e=>e.name+' ['+e.status+']: '+e.notes).join(' | ')||'none'}
-Recent wins: ${analyzed.flatMap(n=>n.analysis?.wins||[]).slice(0,5).join('; ')||'none'}`;
+// ── PATTERNS PANEL ────────────────────────────────────────────
+function renderPatternsPanel(){
+  const el=document.getElementById('patterns-content');
+  el.innerHTML=`
+  <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6;">AI-powered analysis of themes across all your students — find what's working, what's recurring, and opportunities to cross-pollinate exercises.</div>
+  <button class="gen-btn" onclick="generatePatterns()" style="margin-bottom:16px;">🧠 Analyze all students</button>
+  <div id="patterns-results"></div>`;
+}
+async function generatePatterns(){
+  const key=geminiKey(); if(!key){alert('Add your Gemini API key in the sidebar first.');return;}
+  const el=document.getElementById('patterns-results');
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:8px;color:var(--purple);"><div class="spinner"></div>Analyzing patterns across ${DB.students.length} students…</div>`;
+  const summary=DB.students.map(s=>`Student: ${s.name} (${s.level}, ${s.instrument||'Voice'})
+Struggles: ${s.struggles.map(x=>x.area+'('+x.severity+')').join(', ')||'none'}
+Goals: ${s.goals.slice(0,3).join('; ')||'none'}
+Successful exercises: ${s.exercises.filter(e=>e.status==='success').map(e=>e.name).join(', ')||'none'}
+Not working: ${s.exercises.filter(e=>e.status==='struggle').map(e=>e.name).join(', ')||'none'}`).join('\n\n---\n\n');
+  const prompt=`You are a voice teacher supervisor. Analyze these students and find cross-student patterns.\n\n${summary}\n\nRespond ONLY with raw JSON:\n{"patterns":[{"title":"pattern title","body":"2-3 sentence observation about what you see across students"}],"opportunities":[{"title":"opportunity title","body":"a specific way to help multiple students at once"}],"summary":"2 sentence overall studio health note"}`;
+  try{
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.5,maxOutputTokens:1000}})});
+    const data=await res.json();
+    if(data.error){el.innerHTML=`<div class="ai-error">⚠ ${esc(data.error.message)}</div>`;return;}
+    const result=JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g,'').trim()||'{}');
+    let html='';
+    if(result.summary) html+=`<div style="background:var(--bg2);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.6;border-left:3px solid var(--purple);">${esc(result.summary)}</div>`;
+    if(result.patterns?.length){ html+=`<div class="section-label">Recurring patterns</div>`; result.patterns.forEach(p=>{ html+=`<div class="pattern-card"><div class="pattern-card-title">${esc(p.title)}</div><div class="pattern-card-body">${esc(p.body)}</div></div>`; }); }
+    if(result.opportunities?.length){ html+=`<div class="section-label" style="margin-top:16px;">Opportunities</div>`; result.opportunities.forEach(o=>{ html+=`<div class="pattern-card" style="background:var(--green-bg);border-color:#97C459;"><div class="pattern-card-title" style="color:var(--lime);">${esc(o.title)}</div><div class="pattern-card-body" style="color:var(--lime);">${esc(o.body)}</div></div>`; }); }
+    el.innerHTML=html||'<div class="empty-state">No patterns found.</div>';
+  }catch(e){ el.innerHTML=`<div class="ai-error">⚠ Could not parse response.</div>`; }
 }
 
-// ── MODAL ─────────────────────────────────────────────────
-let modalType=null;
-function openModal(type){
+// ── DIAGNOSIS PANEL ───────────────────────────────────────────
+function renderDiagnosisPanel(){
+  const el=document.getElementById('diagnosis-content');
+  el.innerHTML=`
+  <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6;">Pre-built exercise packages. Select a student and apply a template to instantly add exercises and tag their struggles.</div>
+  <div class="field" style="max-width:260px;margin-bottom:20px;">
+    <label>Apply to student</label>
+    <select id="diagnosis-student-sel" style="width:100%;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:13px;font-family:var(--font);">
+      <option value="">— select student —</option>
+      ${sortedStudents().map(s=>`<option value="${s.id}">${esc(s.name)} (${s.instrument||'Voice'})</option>`).join('')}
+    </select>
+  </div>
+  ${DIAGNOSIS_TEMPLATES.map(t=>`<div class="diagnosis-card">
+    <div class="card-row">
+      <div>
+        <div class="diagnosis-card-title">${esc(t.name)}</div>
+        <div class="diagnosis-card-meta">${t.instrument==='Both'?'Voice & Keys':t.instrument} · ${t.exercises.length} exercises</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:8px;">${esc(t.description)}</div>
+        <div>${t.exercises.map(ex=>`<div style="font-size:12px;padding:3px 0;border-bottom:0.5px solid var(--border);color:var(--text2);"><span style="font-weight:500;color:var(--text);">${esc(ex.name)}</span> — ${esc(ex.notes)}</div>`).join('')}</div>
+      </div>
+      <button class="lib-assign-btn" style="flex-shrink:0;" onclick="applyDiagnosisTemplate('${t.id}')">Apply →</button>
+    </div>
+  </div>`).join('')}`;
+}
+function applyDiagnosisTemplate(templateId){
+  const selEl=document.getElementById('diagnosis-student-sel');
+  const sid=parseInt(selEl?.value); if(!sid){alert('Select a student first.');return;}
+  const s=DB.students.find(st=>st.id===sid); if(!s) return;
+  const t=DIAGNOSIS_TEMPLATES.find(x=>x.id===templateId); if(!t) return;
+  if(t.instrument!=='Both'&&s.instrument&&t.instrument!==s.instrument){
+    if(!confirm(`This template is for ${t.instrument} but ${s.name} is a ${s.instrument} student. Apply anyway?`)) return;
+  }
+  let added=0;
+  t.exercises.forEach(ex=>{
+    if(!s.exercises.find(e=>e.name===ex.name)){
+      s.exercises.push({name:ex.name,pattern:ex.pattern,status:'pending',notes:ex.notes,linkedStruggles:[...(t.struggles||[])],linkedGoals:[]});
+      added++;
+    }
+  });
+  t.struggles.forEach(st=>{ if(!s.struggles.find(x=>x.area===st)){ s.struggles.push({area:st,detail:'Added via diagnosis template: '+t.name,severity:'medium'}); } });
+  save();
+  alert(`Applied "${t.name}" to ${s.name}: ${added} exercises added.`);
+}
+// ── MODAL ─────────────────────────────────────────────────────
+function openModal(type, extra){
   modalType=type;
-  const titles={student:'Add student',editstudent:'Edit student',song:'Add song',struggle:'Log struggle',exercise:'Log exercise',goal:'Add goal',libsong:'Add song to library',libexercise:'Add exercise to library'};
+  const titles={student:'Add student',editstudent:'Edit student',song:'Add song',struggle:'Log struggle',exercise:'Log exercise',editexercise:'Edit exercise links',goal:'Add goal',libsong:'Add song to library',libexercise:'Add exercise to library',editarchivedSong:'Edit archived song'};
   let html=`<h3>${titles[type]||type}</h3>`;
+
   if(type==='student'){
     html+=`<div class="field"><label>Name</label><input id="m-name" placeholder="Full name"></div>
     <div class="field"><label>Level</label><select id="m-level"><option>Beginner</option><option>Intermediate</option><option>Advanced</option><option>Professional</option></select></div>
+    <div class="field"><label>Instrument</label><select id="m-instrument"><option value="Voice">Voice</option><option value="Keys">Keys</option></select></div>
     <div class="field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="m-private" style="width:auto;"> Private studio student</label></div>
     <div class="field"><label>Initial goals (one per line)</label><textarea id="m-goals" placeholder="Develop mix voice&#10;Extend range to C5"></textarea></div>`;
+
   } else if(type==='editstudent'){
     const s=getActive(); if(!s) return;
     html+=`<div class="field"><label>Name</label><input id="m-name" value="${esc(s.name)}"></div>
     <div class="field"><label>Level</label><select id="m-level"><option${s.level==='Beginner'?' selected':''}>Beginner</option><option${s.level==='Intermediate'?' selected':''}>Intermediate</option><option${s.level==='Advanced'?' selected':''}>Advanced</option><option${s.level==='Professional'?' selected':''}>Professional</option></select></div>
+    <div class="field"><label>Instrument</label><select id="m-instrument"><option value="Voice"${(s.instrument||'Voice')==='Voice'?' selected':''}>Voice</option><option value="Keys"${s.instrument==='Keys'?' selected':''}>Keys</option></select></div>
     <div class="field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="m-private" style="width:auto;"${s.isPrivate?' checked':''}> Private studio student</label></div>
     <div class="section-label" style="margin-top:4px;">Goals</div>
     ${s.goals.map((g,gi)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="flex:1;font-size:13px;">${esc(g)}</span><button type="button" class="icon-btn" style="font-size:11px;padding:2px 7px;" onclick="deleteGoal(${gi});closeModal();openModal('editstudent');">✕</button></div>`).join('')}
     <div class="field" style="margin-top:8px;"><label>Add goal</label><input id="m-newgoal" placeholder="New goal"></div>`;
+
   } else if(type==='song'){
     html+=`<div class="field"><label>Song title</label><input id="m-title" placeholder="e.g. The Climb"></div>
+    <div class="field"><label>Artist / Composer</label><input id="m-artist" placeholder="e.g. Jessi Alexander"></div>
     <div class="field"><label>Key</label><input id="m-key" placeholder="e.g. G, Bb, C#m"></div>
     <div class="field"><label>Notes</label><textarea id="m-notes" placeholder="What are they working on?"></textarea></div>
+    <div class="field"><label>Problem points</label><textarea id="m-problems" placeholder="Specific challenges, bars, or transitions…"></textarea></div>
     <div class="field"><label>Tags (comma separated)</label><input id="m-tags" placeholder="belt, passaggio, breath"></div>`;
+
+  } else if(type==='editarchivedSong'){
+    const s=getActive(); if(!s) return;
+    const sg=s.songs[extra]; if(!sg) return;
+    html+=`<div class="field"><label>Song title</label><input id="m-title" value="${esc(sg.title)}"></div>
+    <div class="field"><label>Artist / Composer</label><input id="m-artist" value="${esc(sg.artist||'')}"></div>
+    <div class="field"><label>Key</label><input id="m-key" value="${esc(sg.key)}"></div>
+    <div class="field"><label>Notes</label><textarea id="m-notes">${esc(sg.notes||'')}</textarea></div>
+    <div class="field"><label>Problem points</label><textarea id="m-problems">${esc(sg.problemPoints||'')}</textarea></div>
+    <div class="field"><label>Tags (comma separated)</label><input id="m-tags" value="${(sg.tags||[]).join(', ')}"></div>
+    <input type="hidden" id="m-song-idx" value="${extra}">`;
+
   } else if(type==='struggle'){
     html+=`<div class="field"><label>Area of struggle</label><input id="m-area" placeholder="e.g. Passaggio transitions"></div>
     <div class="field"><label>Details</label><textarea id="m-detail" placeholder="Describe what's happening..."></textarea></div>
     <div class="field"><label>Severity</label><select id="m-sev"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>`;
+
   } else if(type==='exercise'){
+    const s=getActive();
     html+=`<div class="field"><label>Exercise name</label><input id="m-name" placeholder="e.g. Lip trill scales"></div>
     <div class="field"><label>Pattern / how to do it</label><input id="m-pattern" placeholder="e.g. 1-2-3-4-5-4-3-2-1"></div>
     <div class="field"><label>Notes</label><textarea id="m-notes" placeholder="Observations..."></textarea></div>
-    <div class="field"><label>Status</label><select id="m-status"><option value="pending">Pending</option><option value="partial">In progress</option><option value="success">Mastered</option><option value="struggle">Not working</option></select></div>`;
+    <div class="field"><label>Status</label><select id="m-status"><option value="pending">Pending</option><option value="partial">In progress</option><option value="success">Mastered</option><option value="struggle">Not working</option></select></div>
+    <div class="field"><label>Links to struggles (comma separated)</label><input id="m-struggles" placeholder="${s?(s.struggles.slice(0,2).map(st=>st.area).join(', ')||'Passaggio transitions'):'Passaggio transitions'}"></div>
+    <div class="field"><label>Links to goals (comma separated)</label><input id="m-goals" placeholder="${s?(s.goals.slice(0,1).join('')||'Develop mix voice'):'Develop mix voice'}"></div>`;
+
+  } else if(type==='editexercise'){
+    const s=getActive(); if(!s) return;
+    const ex=s.exercises[extra]; if(!ex) return;
+    html+=`<div style="font-size:14px;font-weight:500;margin-bottom:12px;">${esc(ex.name)}</div>
+    <div class="field"><label>Links to struggles (comma separated)</label><input id="m-struggles" value="${(ex.linkedStruggles||[]).join(', ')}"></div>
+    <div class="field"><label>Links to goals (comma separated)</label><input id="m-goals" value="${(ex.linkedGoals||[]).join(', ')}"></div>
+    <div class="field"><label>Notes</label><textarea id="m-notes">${esc(ex.notes||'')}</textarea></div>
+    <input type="hidden" id="m-ex-idx" value="${extra}">`;
+
   } else if(type==='goal'){
     html+=`<div class="field"><label>Goal</label><input id="m-goal" placeholder="e.g. Extend range to high C"></div>`;
+
   } else if(type==='libsong'){
     html+=`<div class="field"><label>Song title</label><input id="m-title" placeholder="e.g. Defying Gravity"></div>
+    <div class="field"><label>Artist</label><input id="m-artist" placeholder="e.g. Stephen Schwartz"></div>
     <div class="field"><label>Composer / show</label><input id="m-composer" placeholder="e.g. Schwartz / Wicked"></div>
     <div class="field"><label>Key</label><input id="m-key" placeholder="e.g. Bb"></div>
+    <div class="field"><label>Instrument</label><select id="m-instrument"><option value="Voice">Voice</option><option value="Keys">Keys</option><option value="Both">Both (add for each)</option></select></div>
     <div class="field"><label>Tags (comma separated)</label><input id="m-tags" placeholder="belt, passaggio, mix, musical-theatre"></div>
     <div class="field"><label>What's it good for?</label><textarea id="m-notes" placeholder="Notes on what vocal challenges this song addresses..."></textarea></div>`;
+
   } else if(type==='libexercise'){
     html+=`<div class="field"><label>Exercise name</label><input id="m-name" placeholder="e.g. Lip trill scales"></div>
     <div class="field"><label>Pattern / instructions</label><input id="m-pattern" placeholder="e.g. 1-2-3-4-5-4-3-2-1"></div>
+    <div class="field"><label>Instrument</label><select id="m-instrument"><option value="Voice">Voice</option><option value="Keys">Keys</option><option value="Both">Both</option></select></div>
     <div class="field"><label>Tags (comma separated)</label><input id="m-tags" placeholder="warm-up, breath, passaggio, registration"></div>
+    <div class="field"><label>Addresses struggles (comma separated)</label><input id="m-struggles" placeholder="Passaggio transitions, Breath support"></div>
+    <div class="field"><label>Addresses goals (comma separated)</label><input id="m-goals" placeholder="Develop mix voice, Extend range"></div>
     <div class="field"><label>What does it do / when to use it?</label><textarea id="m-notes" placeholder="Describe the purpose and best use cases..."></textarea></div>`;
   }
+
   html+=`<div class="modal-actions"><button class="btn-cancel" onclick="closeModal()">Cancel</button><button class="btn-save" onclick="submitModal()">Save</button></div>`;
   document.getElementById('modal-box').innerHTML=html;
   document.getElementById('modal-bg').classList.add('open');
-  setTimeout(()=>{const f=document.getElementById('modal-box').querySelector('input,textarea');if(f)f.focus();},50);
+  // Store extra data
+  if(extra!=null) document.getElementById('modal-box').dataset.extra=extra;
+  setTimeout(()=>{ const f=document.getElementById('modal-box').querySelector('input,textarea'); if(f) f.focus(); },50);
 }
-function closeModal(){document.getElementById('modal-bg').classList.remove('open');modalType=null;}
-function closeBg(e){if(e.target===document.getElementById('modal-bg'))closeModal();}
-function v(id){const el=document.getElementById(id);return el?el.value.trim():'';}
-function parseTags(str){return str.split(',').map(t=>t.trim().toLowerCase().replace(/\s+/g,'-').replace(/^#/,'')).filter(Boolean);}
+function closeModal(){ document.getElementById('modal-bg').classList.remove('open'); modalType=null; }
+function closeBg(e){ if(e.target===document.getElementById('modal-bg')) closeModal(); }
+function v(id){ const el=document.getElementById(id); return el?el.value.trim():''; }
 
 function submitModal(){
   const type=modalType;
+  const extra=document.getElementById('modal-box')?.dataset?.extra;
+
   if(type==='student'){
-    const name=v('m-name');if(!name)return;
+    const name=v('m-name'); if(!name) return;
     const isPrivate=document.getElementById('m-private')?.checked||false;
-    DB.students.push({id:Date.now(),name,level:v('m-level'),colorIdx:DB.students.length,isPrivate,goals:v('m-goals').split('\n').map(g=>g.trim()).filter(Boolean),songs:[],struggles:[],exercises:[],sessionNotes:[],chatHistory:[],lessonPlan:null});
+    DB.students.push({id:Date.now(),name,level:v('m-level'),colorIdx:DB.students.length,instrument:v('m-instrument')||'Voice',isPrivate,goals:v('m-goals').split('\n').map(g=>g.trim()).filter(Boolean),songs:[],struggles:[],exercises:[],sessionNotes:[],sessionLogs:[],chatHistory:[],lessonPlan:null,curriculumProgress:{},achievedGoals:[]});
     DB.activeId=DB.students[DB.students.length-1].id; DB.activeTab='dashboard'; DB.view='student';
+
   } else if(type==='editstudent'){
     const s=getActive(); if(!s) return;
     const name=v('m-name'); if(!name) return;
-    s.name=name; s.level=v('m-level'); s.isPrivate=document.getElementById('m-private')?.checked||false;
+    s.name=name; s.level=v('m-level'); s.instrument=v('m-instrument')||s.instrument||'Voice'; s.isPrivate=document.getElementById('m-private')?.checked||false;
     const newGoal=v('m-newgoal'); if(newGoal) s.goals.push(newGoal);
+
+  } else if(type==='song'){
+    const s=getActive(); if(!s) return;
+    s.songs.push({title:v('m-title')||'Untitled',key:v('m-key')||'?',artist:v('m-artist'),notes:v('m-notes'),tags:parseTags(v('m-tags')),archived:false,problemPoints:v('m-problems')});
+
+  } else if(type==='editarchivedSong'){
+    const s=getActive(); if(!s) return;
+    const idx=parseInt(v('m-song-idx')); if(isNaN(idx)) return;
+    const sg=s.songs[idx]; if(!sg) return;
+    sg.title=v('m-title')||sg.title; sg.key=v('m-key')||sg.key; sg.artist=v('m-artist'); sg.notes=v('m-notes'); sg.problemPoints=v('m-problems'); sg.tags=parseTags(v('m-tags'));
+
+  } else if(type==='struggle'){
+    const s=getActive(); if(!s) return;
+    s.struggles.push({area:v('m-area')||'Unnamed',detail:v('m-detail'),severity:v('m-sev')||'medium'});
+
+  } else if(type==='exercise'){
+    const s=getActive(); if(!s) return;
+    s.exercises.push({name:v('m-name')||'Exercise',pattern:v('m-pattern'),notes:v('m-notes'),status:v('m-status')||'pending',linkedStruggles:parseList(v('m-struggles')),linkedGoals:parseList(v('m-goals'))});
+
+  } else if(type==='editexercise'){
+    const s=getActive(); if(!s) return;
+    const idx=parseInt(v('m-ex-idx')); if(isNaN(idx)) return;
+    const ex=s.exercises[idx]; if(!ex) return;
+    ex.linkedStruggles=parseList(v('m-struggles')); ex.linkedGoals=parseList(v('m-goals')); ex.notes=v('m-notes');
+
+  } else if(type==='goal'){
+    const s=getActive(); if(!s) return;
+    const g=v('m-goal'); if(g) s.goals.push(g);
+
   } else if(type==='libsong'){
-    DB.library.songs.push({id:uid(),title:v('m-title')||'Untitled',composer:v('m-composer'),key:v('m-key')||'?',tags:parseTags(v('m-tags')),notes:v('m-notes')});
+    const inst=v('m-instrument');
+    const base={id:uid(),title:v('m-title')||'Untitled',artist:v('m-artist'),composer:v('m-composer'),key:v('m-key')||'?',tags:parseTags(v('m-tags')),notes:v('m-notes')};
+    if(inst==='Both'){
+      DB.library.songs.push({...base,id:uid(),instrument:'Voice'});
+      DB.library.songs.push({...base,id:uid(),instrument:'Keys'});
+    } else {
+      DB.library.songs.push({...base,instrument:inst});
+    }
+
   } else if(type==='libexercise'){
-    DB.library.exercises.push({id:uid(),name:v('m-name')||'Exercise',pattern:v('m-pattern'),tags:parseTags(v('m-tags')),notes:v('m-notes')});
-  } else {
-    const s=getActive();if(!s)return;
-    if(type==='song') s.songs.push({title:v('m-title')||'Untitled',key:v('m-key')||'?',notes:v('m-notes'),tags:parseTags(v('m-tags')),archived:false});
-    else if(type==='struggle') s.struggles.push({area:v('m-area')||'Unnamed',detail:v('m-detail'),severity:v('m-sev')||'medium'});
-    else if(type==='exercise') s.exercises.push({name:v('m-name')||'Exercise',pattern:v('m-pattern'),notes:v('m-notes'),status:v('m-status')||'pending'});
-    else if(type==='goal'){const g=v('m-goal');if(g)s.goals.push(g);}
+    DB.library.exercises.push({id:uid(),name:v('m-name')||'Exercise',pattern:v('m-pattern'),instrument:v('m-instrument')||'Both',tags:parseTags(v('m-tags')),notes:v('m-notes'),addressesStruggles:parseList(v('m-struggles')),addressesGoals:parseList(v('m-goals'))});
   }
-  save();closeModal();renderSidebar();
+
+  save(); closeModal(); renderSidebar();
   if(DB.view==='library') renderLibraryPanel();
+  else if(DB.view==='diagnosis') renderDiagnosisPanel();
   else renderPanels();
 }
 
@@ -1229,26 +1681,13 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&e.target.tagName!=='TEXTAREA'&&document.getElementById('modal-bg').classList.contains('open')) submitModal();
 });
 
-// ── Password ──────────────────────────────────────────────
-const APP_PASSWORD = '3745'; // ← change this to whatever you want
-function checkPassword(){
-  const input=document.getElementById('lock-input').value;
-  if(input===APP_PASSWORD){
-    try{ sessionStorage.setItem('vst_auth','1'); }catch(e){}
-    document.getElementById('lock-screen').classList.add('hidden');
-  } else {
-    document.getElementById('lock-error').textContent='Incorrect password — try again.';
-    document.getElementById('lock-input').value='';
-    document.getElementById('lock-input').focus();
-  }
-}
+// ── Password ──────────────────────────────────────────────────
+const APP_PASSWORD='3745';
+function checkPassword(){ const input=document.getElementById('lock-input').value; if(input===APP_PASSWORD){ try{ sessionStorage.setItem('vst_auth','1'); }catch(e){} document.getElementById('lock-screen').classList.add('hidden'); } else { document.getElementById('lock-error').textContent='Incorrect password — try again.'; document.getElementById('lock-input').value=''; document.getElementById('lock-input').focus(); } }
 function lockKeydown(e){ if(e.key==='Enter') checkPassword(); }
-// Check if already authenticated this session
-if(sessionStorage.getItem('vst_auth')==='1'){
-  document.getElementById('lock-screen').classList.add('hidden');
-}
+if(sessionStorage.getItem('vst_auth')==='1'){ document.getElementById('lock-screen').classList.add('hidden'); }
 
-// ── Init ──────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────
 load();
 const _gk=loadApiKey('gemini'); if(_gk) document.getElementById('api-key-input').value=_gk;
 const _ep=loadApiKey('ejspub'); if(_ep) document.getElementById('ejs-public-key').value=_ep;
