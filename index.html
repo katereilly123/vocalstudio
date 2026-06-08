@@ -589,6 +589,32 @@ function saveApiKey(k,v){ try{ localStorage.setItem('vstkey_'+k,v); }catch(e){} 
 function loadApiKey(k){ try{ return localStorage.getItem('vstkey_'+k)||''; }catch(e){ return ''; } }
 function toggleSettings(){ document.getElementById('api-wrap').classList.toggle('open'); }
 function hasGeminiKey(){ return !!(document.getElementById('api-key-input')?.value||loadApiKey('gemini')); }
+let _geminiModel=null;
+async function getGeminiModel(){
+  if(_geminiModel) return _geminiModel;
+  const key=geminiKey(); if(!key) return null;
+  const preferred=['gemini-2.5-flash','gemini-2.5-flash-preview','gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash','gemini-pro'];
+  try{
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`);
+    const data=await res.json();
+    if(data.models){
+      const names=data.models.filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')).map(m=>m.name.replace('models/',''));
+      for(const p of preferred){ if(names.includes(p)){ _geminiModel=p; return p; } }
+      if(names.length){ _geminiModel=names[0]; return names[0]; }
+    }
+  }catch(e){}
+  _geminiModel='gemini-2.0-flash-lite';
+  return _geminiModel;
+}
+async function geminiPost(prompt, opts={}){
+  const key=geminiKey(); if(!key) throw new Error('No API key');
+  const model=await getGeminiModel();
+  const body=opts.contents?{contents:opts.contents,generationConfig:opts.generationConfig}:{contents:[{parts:[{text:prompt}]}],generationConfig:opts.generationConfig};
+  const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const data=await res.json();
+  if(data.error) throw new Error(data.error.message);
+  return data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+}
 function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function geminiKey(){ return (document.getElementById('api-key-input')?.value||loadApiKey('gemini')).trim(); }
 function initials(n){ return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
@@ -881,11 +907,9 @@ async function sendChat(){
     for(let i=1;i<history.length;i++){ contents.push({role:history[i].role==='user'?'user':'model',parts:[{text:history[i].content}]}); }
   }
   try{
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents,generationConfig:{temperature:0.6,maxOutputTokens:500}})});
-    const data=await res.json();
-    if(data.error) s.chatHistory.push({role:'assistant',content:'⚠ API error: '+data.error.message+'\n\nCheck that your Gemini API key is correct in ⚙ Settings.'});
-    else s.chatHistory.push({role:'assistant',content:data.candidates?.[0]?.content?.parts?.[0]?.text||'No response.'});
-  }catch(e){ s.chatHistory.push({role:'assistant',content:'⚠ Could not reach Gemini: '+(e.message||'network error')+'\n\nCheck your API key in ⚙ Settings.'}); }
+    const text=await geminiPost('',{contents,generationConfig:{temperature:0.6,maxOutputTokens:500}});
+    s.chatHistory.push({role:'assistant',content:text||'No response.'});
+  }catch(e){ s.chatHistory.push({role:'assistant',content:'⚠ '+(e.message||'Could not reach Gemini')+'\n\nCheck your API key in ⚙ Settings.'}); }
   save();
   document.getElementById('chat-send-btn').disabled=false;
   const el=document.getElementById('chat-messages');
@@ -1186,11 +1210,9 @@ async function analyzeNote(i){
   const note=s.sessionNotes[i];
   const prompt=`You are a vocal coach assistant. Parse these session notes for student "${s.name}" (${s.level}).\nGoals: ${s.goals.join('; ')||'none'}\nStruggles: ${s.struggles.map(x=>x.area).join(', ')||'none'}\nExercises: ${s.exercises.map(e=>e.name+' ['+e.status+']').join(', ')||'none'}\n\nNotes: """${note.text}"""\n\nRespond ONLY with raw JSON:\n{"summary":"1 sentence","wins":["specific win"],"goals":["suggested goal"],"struggles":[{"area":"","detail":"","severity":"low|medium|high"}],"exercises":[{"name":"","pattern":""}]}`;
   try{
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.4}})});
-    const data=await res.json();
-    if(data.error) s.sessionNotes[i].analysis={error:'Gemini: '+data.error.message};
-    else s.sessionNotes[i].analysis=JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g,'').trim()||'{}');
-  }catch(e){s.sessionNotes[i].analysis={error:'Could not parse response.'};}
+    const text=await geminiPost(prompt,{generationConfig:{temperature:0.4}});
+    s.sessionNotes[i].analysis=JSON.parse(text.replace(/```json|```/g,'').trim()||'{}');
+  }catch(e){s.sessionNotes[i].analysis={error:e.message||'Could not parse response.'};}
   save(); renderTab();
 }
 function deleteNote(i){const s=getActive();s.sessionNotes.splice(i,1);save();renderTab();}
@@ -1319,11 +1341,9 @@ async function generateLessonPlan(){
   const libEx=DB.library.exercises.filter(le=>le.instrument==='Both'||le.instrument===s.instrument||!le.instrument).map(e=>e.name+' ['+e.tags.join(',')+'] — '+e.notes).join('\n');
   const prompt=`You are an expert vocal coach. Build a practical lesson plan.\n\n${buildStudentContext(s)}\n\nTEACHER'S EXERCISE LIBRARY:\n${libEx}\n\nMost recent notes:\n${recentNotes||'None yet.'}\n\nPrioritize what came up most recently. Be specific. Respond ONLY with raw JSON:\n{"overview":"2-3 sentence focus summary","warmup":[{"name":"","instruction":"","why":""}],"focus":[{"name":"","instruction":"","why":""}],"repertoire":[{"name":"song + section","instruction":""}],"cooldown":[{"name":"","instruction":""}],"watchFor":"one key observation"}`;
   try{
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.5}})});
-    const data=await res.json();
-    if(data.error) s.lessonPlan={error:'Gemini: '+data.error.message,generatedAt:Date.now()};
-    else s.lessonPlan={...JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g,'').trim()||'{}'),generatedAt:Date.now()};
-  }catch(e){s.lessonPlan={error:'Could not parse response.',generatedAt:Date.now()};}
+    const text=await geminiPost(prompt,{generationConfig:{temperature:0.5}});
+    s.lessonPlan={...JSON.parse(text.replace(/```json|```/g,'').trim()||'{}'),generatedAt:Date.now()};
+  }catch(e){s.lessonPlan={error:e.message||'Could not generate plan.',generatedAt:Date.now()};}
   DB.loadingPlan=false; save(); renderTab();
 }
 function buildStudentContext(s){
@@ -1460,16 +1480,14 @@ Successful exercises: ${s.exercises.filter(e=>e.status==='success').map(e=>e.nam
 Not working: ${s.exercises.filter(e=>e.status==='struggle').map(e=>e.name).join(', ')||'none'}`).join('\n\n---\n\n');
   const prompt=`You are a voice teacher supervisor. Analyze these students and find cross-student patterns.\n\n${summary}\n\nRespond ONLY with raw JSON:\n{"patterns":[{"title":"pattern title","body":"2-3 sentence observation about what you see across students"}],"opportunities":[{"title":"opportunity title","body":"a specific way to help multiple students at once"}],"summary":"2 sentence overall studio health note"}`;
   try{
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.5,maxOutputTokens:1000}})});
-    const data=await res.json();
-    if(data.error){el.innerHTML=`<div class="ai-error">⚠ ${esc(data.error.message)}</div>`;return;}
-    const result=JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g,'').trim()||'{}');
+    const text=await geminiPost(prompt,{generationConfig:{temperature:0.5,maxOutputTokens:1000}});
+    const result=JSON.parse(text.replace(/```json|```/g,'').trim()||'{}');
     let html='';
     if(result.summary) html+=`<div style="background:var(--bg2);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.6;border-left:3px solid var(--purple);">${esc(result.summary)}</div>`;
     if(result.patterns?.length){ html+=`<div class="section-label">Recurring patterns</div>`; result.patterns.forEach(p=>{ html+=`<div class="pattern-card"><div class="pattern-card-title">${esc(p.title)}</div><div class="pattern-card-body">${esc(p.body)}</div></div>`; }); }
     if(result.opportunities?.length){ html+=`<div class="section-label" style="margin-top:16px;">Opportunities</div>`; result.opportunities.forEach(o=>{ html+=`<div class="pattern-card" style="background:var(--green-bg);border-color:#97C459;"><div class="pattern-card-title" style="color:var(--lime);">${esc(o.title)}</div><div class="pattern-card-body" style="color:var(--lime);">${esc(o.body)}</div></div>`; }); }
     el.innerHTML=html||'<div class="empty-state">No patterns found.</div>';
-  }catch(e){ el.innerHTML=`<div class="ai-error">⚠ Could not parse response.</div>`; }
+  }catch(e){ el.innerHTML=`<div class="ai-error">⚠ ${esc(e.message||'Could not analyze.')}</div>`; }
 }
 
 // ── DIAGNOSIS PANEL ───────────────────────────────────────────
