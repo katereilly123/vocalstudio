@@ -58,6 +58,9 @@
   .s-name { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .s-level { font-size: 11px; color: var(--text3); }
   .private-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; background: var(--purple-light); color: var(--purple); padding: 1px 5px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
+  .gdrive-btn { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: var(--radius); font-size: 11px; cursor: pointer; border: 0.5px solid var(--border2); background: var(--bg); color: var(--text2); font-family: var(--font); font-weight: 500; transition: all 0.15s; margin: 4px 12px 0; }
+  .gdrive-btn:hover { border-color: var(--green-mid); color: var(--green); }
+  .gdrive-btn.connected { border-color: var(--green-mid); color: var(--green); background: var(--green-bg); }
   .add-student-btn { margin: 6px 12px 4px; padding: 8px; border: 1px dashed var(--border2); border-radius: var(--radius); background: none; color: var(--text2); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: all 0.1s; font-family: var(--font); }
   .add-student-btn:hover { background: var(--bg); color: var(--text); }
   .sidebar-divider { height: 0.5px; background: var(--border); margin: 8px 0; }
@@ -326,6 +329,7 @@
     <div class="sidebar-top">
       <div class="app-title">🎤 Voice Studio</div>
     </div>
+    <button class="gdrive-btn" id="gdrive-btn" onclick="toggleGDrive()">☁ Connect Google Drive</button>
     <div class="sidebar-section-label">Students</div>
     <div class="student-list" id="student-list"></div>
     <button class="add-student-btn" onclick="openModal('student')">+ Add student</button>
@@ -394,8 +398,6 @@
     </div>
     <div class="tab-content" id="library-content"></div>
   </div>
-</div>
-
 
   <!-- CURRICULA PANEL -->
   <div id="curricula-panel" class="main" style="display:none;">
@@ -408,6 +410,7 @@
     </div>
     <div class="tab-content" id="curricula-content"></div>
   </div>
+</div>
 
   <!-- TEMPLATE APPLY PICKER -->
   <div class="picker-bg" id="template-apply-bg" onclick="closeTemplateApply(event)">
@@ -531,8 +534,79 @@ let DB={
 let libSubtab='songs'; // 'songs' | 'exercises'
 
 // ── Storage ──────────────────────────────────────────────
-function save(){ try{ localStorage.setItem('vstdb3',JSON.stringify({students:DB.students,library:DB.library,curricula:DB.curricula})); }catch(e){} }
-function load(){ try{ const d=localStorage.getItem('vstdb3'); if(d){ const p=JSON.parse(d); DB.students=p.students||DB.students; DB.library=p.library||DB.library; DB.curricula=p.curricula||DB.curricula; } }catch(e){} }
+let gdriveToken=null;
+const GDRIVE_CLIENT_ID='642875191868-930aik1o2u8nf5bdmrmutd161htjm55q.apps.googleusercontent.com';
+const GDRIVE_FILENAME='voice_studio_tracker_db.json';
+
+function save(){
+  try{ localStorage.setItem('vstdb3',JSON.stringify({students:DB.students,library:DB.library,curricula:DB.curricula})); }catch(e){}
+  if(gdriveToken) saveToDrive();
+}
+function load(){
+  try{ const d=localStorage.getItem('vstdb3'); if(d){ const p=JSON.parse(d); DB.students=p.students||DB.students; DB.library=p.library||DB.library; DB.curricula=p.curricula||DB.curricula; } }catch(e){}
+  migrateDB();
+}
+
+function toggleGDrive(){ if(gdriveToken) disconnectGDrive(); else connectGDrive(); }
+function connectGDrive(){
+  const scope='https://www.googleapis.com/auth/drive.appdata';
+  const redirectUri=window.location.href.split('?')[0].split('#')[0];
+  const url=`https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(GDRIVE_CLIENT_ID)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&include_granted_scopes=true`;
+  const popup=window.open(url,'gdrive_auth','width=500,height=600');
+  const timer=setInterval(()=>{
+    try{
+      const hash=popup.location.hash;
+      if(hash&&hash.includes('access_token')){
+        clearInterval(timer); popup.close();
+        const params=new URLSearchParams(hash.slice(1));
+        gdriveToken=params.get('access_token');
+        updateGDriveUI();
+        loadFromDrive();
+      }
+    }catch(e){}
+    if(popup.closed) clearInterval(timer);
+  },500);
+}
+function disconnectGDrive(){ gdriveToken=null; updateGDriveUI(); }
+function updateGDriveUI(){
+  const btn=document.getElementById('gdrive-btn'); if(!btn) return;
+  if(gdriveToken){ btn.className='gdrive-btn connected'; btn.textContent='✓ Drive connected'; }
+  else { btn.className='gdrive-btn'; btn.textContent='☁ Connect Google Drive'; }
+}
+async function findOrCreateDriveFile(){
+  const listRes=await fetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D%22'+GDRIVE_FILENAME+'%22',{headers:{Authorization:'Bearer '+gdriveToken}});
+  const listData=await listRes.json();
+  if(listData.files&&listData.files.length>0) return listData.files[0].id;
+  const createRes=await fetch('https://www.googleapis.com/drive/v3/files',{method:'POST',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'application/json'},body:JSON.stringify({name:GDRIVE_FILENAME,parents:['appDataFolder']})});
+  return (await createRes.json()).id;
+}
+async function saveToDrive(){
+  if(!gdriveToken) return;
+  try{
+    const fileId=await findOrCreateDriveFile();
+    const content=JSON.stringify({students:DB.students,library:DB.library,curricula:DB.curricula});
+    const boundary='vst_boundary';
+    const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{}\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+content+'\r\n--'+boundary+'--';
+    await fetch('https://www.googleapis.com/upload/drive/v3/files/'+fileId+'?uploadType=multipart',{method:'PATCH',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+boundary},body});
+  }catch(e){ console.error('Drive save failed',e); }
+}
+async function loadFromDrive(){
+  if(!gdriveToken) return;
+  try{
+    const fileId=await findOrCreateDriveFile();
+    const res=await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
+    if(res.ok){
+      const text=await res.text();
+      if(text&&text.length>2){
+        const p=JSON.parse(text);
+        if(p.students) DB.students=p.students;
+        if(p.library) DB.library=p.library;
+        if(p.curricula) DB.curricula=p.curricula;
+        migrateDB(); renderSidebar(); renderPanels();
+      }
+    }
+  }catch(e){ console.error('Drive load failed',e); }
+}
 function saveApiKey(k,v){ try{ localStorage.setItem('vstkey_'+k,v); }catch(e){} }
 function loadApiKey(k){ try{ return localStorage.getItem('vstkey_'+k)||''; }catch(e){ return ''; } }
 function toggleSettings(){ document.getElementById('api-wrap').classList.toggle('open'); }
@@ -546,6 +620,7 @@ function sortedStudents(){ return [...DB.students].sort((a,b)=>a.name.localeComp
 
 // ── Sidebar ───────────────────────────────────────────────
 function renderSidebar(){
+  updateGDriveUI();
   document.getElementById('student-list').innerHTML=sortedStudents().map(s=>{
     const c=color(s.colorIdx),act=(DB.view==='student'&&s.id===DB.activeId)?'active':'';
     const priv=s.isPrivate?`<span class="private-badge">Private</span>`:'';
