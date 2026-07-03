@@ -58,6 +58,13 @@
   .s-name { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .s-level { font-size: 11px; color: var(--text3); }
   .private-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; background: var(--purple-light); color: var(--purple); padding: 1px 5px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
+  .instrument-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 5px; border-radius: 4px; margin-left: 2px; vertical-align: middle; }
+  .instrument-badge.voice { background: var(--purple-light); color: var(--purple); }
+  .instrument-badge.keys { background: #E0F4F4; color: #0A6B6B; }
+  .filter-chip { padding: 5px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text2); font-family: var(--font); transition: all 0.1s; }
+  .filter-chip.active { background: var(--purple); color: white; border-color: var(--purple); }
+  .filter-chip.keys-active { background: #17A2A2; color: white; border-color: #17A2A2; }
+  .filter-chips { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
   .gdrive-btn { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: var(--radius); font-size: 11px; cursor: pointer; border: 0.5px solid var(--border2); background: var(--bg); color: var(--text2); font-family: var(--font); font-weight: 500; transition: all 0.15s; margin: 4px 12px 0; }
   .gdrive-btn:hover { border-color: var(--green-mid); color: var(--green); }
   .gdrive-btn.connected { border-color: var(--green-mid); color: var(--green); background: var(--green-bg); }
@@ -514,8 +521,8 @@ let DB={
   ],
   library:{
     songs:[
-      {id:'ls1',title:'Defying Gravity',composer:'Schwartz',key:'Bb',tags:['belt','passaggio','mix','musical-theatre'],notes:'Great for working mix/belt coordination. Bridge is intense passaggio territory.'},
-      {id:'ls2',title:'Somewhere Over the Rainbow',composer:'Arlen',key:'F',tags:['head-voice','leaps','legato','breath'],notes:'Classic for establishing head voice and smooth octave leaps. Good for breath control too.'},
+      {id:'ls1',title:'Defying Gravity',composer:'Schwartz',key:'Bb',instrument:'Voice',tags:['belt','passaggio','mix','musical-theatre'],notes:'Great for working mix/belt coordination. Bridge is intense passaggio territory.'},
+      {id:'ls2',title:'Somewhere Over the Rainbow',composer:'Arlen',key:'F',instrument:'Voice',tags:['head-voice','leaps','legato','breath'],notes:'Classic for establishing head voice and smooth octave leaps. Good for breath control too.'},
     ],
     exercises:[
       {id:'le1',name:'Lip trill scales',pattern:'1-2-3-4-5-4-3-2-1',tags:['warm-up','registration','jaw-release','breath'],notes:'Excellent all-purpose warm-up. Releases jaw and tongue tension, encourages forward placement.'},
@@ -532,6 +539,7 @@ let DB={
 };
 
 let libSubtab='songs'; // 'songs' | 'exercises'
+let libInstrumentFilter='all'; // 'all' | 'Voice' | 'Keys'
 
 // ── Storage ──────────────────────────────────────────────
 let gdriveToken=null;
@@ -545,6 +553,24 @@ function save(){
 function load(){
   try{ const d=localStorage.getItem('vstdb3'); if(d){ const p=JSON.parse(d); DB.students=p.students||DB.students; DB.library=p.library||DB.library; DB.curricula=p.curricula||DB.curricula; } }catch(e){}
   migrateDB();
+}
+
+
+function migrateDB(){
+  DB.students.forEach(s=>{
+    if(!s.instrument) s.instrument='Voice';
+    if(!s.sessionLogs) s.sessionLogs=[];
+    if(!s.curriculumProgress) s.curriculumProgress={};
+    if(!s.achievedGoals) s.achievedGoals=[];
+    if(!s.appliedCurricula) s.appliedCurricula=[];
+    if(!s.isPrivate) s.isPrivate=false;
+    s.songs.forEach(sg=>{ if(!sg.problemPoints) sg.problemPoints=''; if(!sg.artist) sg.artist=''; });
+    s.exercises.forEach(ex=>{ if(!ex.linkedStruggles) ex.linkedStruggles=[]; if(!ex.linkedGoals) ex.linkedGoals=[]; });
+  });
+  DB.library.songs.forEach(ls=>{ if(!ls.instrument) ls.instrument='Voice'; if(!ls.artist) ls.artist=''; });
+  DB.library.exercises.forEach(le=>{ if(!le.instrument) le.instrument='Both'; if(!le.addressesStruggles) le.addressesStruggles=[]; if(!le.addressesGoals) le.addressesGoals=[]; });
+  if(!DB.curricula||!DB.curricula.length) DB.curricula=JSON.parse(JSON.stringify(DEFAULT_CURRICULA));
+  DB.curricula.forEach(c=>{ if(!c.checklist)c.checklist=[]; if(!c.songTitles)c.songTitles=[]; if(!c.exerciseNames)c.exerciseNames=[]; if(!c.goalTexts)c.goalTexts=[]; if(!c.instrument)c.instrument='Voice'; });
 }
 
 function toggleGDrive(){ if(gdriveToken) disconnectGDrive(); else connectGDrive(); }
@@ -623,7 +649,8 @@ function renderSidebar(){
   updateGDriveUI();
   document.getElementById('student-list').innerHTML=sortedStudents().map(s=>{
     const c=color(s.colorIdx),act=(DB.view==='student'&&s.id===DB.activeId)?'active':'';
-    const priv=s.isPrivate?`<span class="private-badge">Private</span>`:'';
+    const priv=s.isPrivate?`<span class="private-badge">P</span>`:'';
+    const inst=s.instrument==='Keys'?`<span class="instrument-badge keys">Keys</span>`:`<span class="instrument-badge voice">Voice</span>`;
     return `<div class="student-item ${act}" onclick="selectStudent(${s.id})">
       <div class="avatar" style="background:${c.bg};color:${c.color}">${initials(s.name)}</div>
       <div style="min-width:0;"><div class="s-name">${esc(s.name)}${priv}</div><div class="s-level">${esc(s.level)}</div></div>
@@ -656,7 +683,10 @@ function renderStudentHeader(s){
   av.textContent=initials(s.name);
   document.getElementById('hdr-name').textContent=s.name;
   const mastered=s.exercises.filter(e=>e.status==='success').length;
-  document.getElementById('hdr-sub').textContent=s.level+' · '+mastered+' exercise'+(mastered===1?'':'s')+' mastered';
+  const instBadge=s.instrument==='Keys'
+    ?`<span style="background:#E0F4F4;color:#0A6B6B;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500;margin-left:6px;">🎹 Keys</span>`
+    :`<span style="background:var(--purple-light);color:var(--purple-dark);font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500;margin-left:6px;">🎤 Voice</span>`;
+  document.getElementById('hdr-sub').innerHTML=s.level+' · '+mastered+' exercise'+(mastered===1?'':'s')+' mastered'+instBadge;
   // Edit/delete buttons
   let actions=document.getElementById('hdr-actions');
   if(!actions){
@@ -1264,12 +1294,18 @@ function renderLibraryPanel(){
     <div class="subtab ${libSubtab==='songs'?'active':''}" onclick="setLibSubtab('songs')">🎵 Songs</div>
     <div class="subtab ${libSubtab==='exercises'?'active':''}" onclick="setLibSubtab('exercises')">✅ Exercises</div>
   </div>
+  <div class="filter-chips">
+    <span class="filter-chip ${libInstrumentFilter==='all'?'active':''}" onclick="setLibFilter('all')">All</span>
+    <span class="filter-chip ${libInstrumentFilter==='Voice'?'active':''}" onclick="setLibFilter('Voice')">🎤 Voice</span>
+    <span class="filter-chip ${libInstrumentFilter==='Keys'?'keys-active':''}" onclick="setLibFilter('Keys')">🎹 Keys</span>
+  </div>
   ${libSubtab==='songs'?renderLibSongs():renderLibExercises()}`;
 }
 function setLibSubtab(t){libSubtab=t;renderLibraryPanel();}
+function setLibFilter(f){libInstrumentFilter=f;renderLibraryPanel();}
 
 function renderLibSongs(){
-  const songs=DB.library.songs;
+  const songs=DB.library.songs.filter(ls=>libInstrumentFilter==='all'||ls.instrument===libInstrumentFilter||!ls.instrument);
   return `
   <input class="search-input" id="lib-song-search" placeholder="Search songs by title or tag…" oninput="renderLibraryPanel()">
   ${(() => {
@@ -1294,7 +1330,7 @@ function renderLibSongs(){
 }
 
 function renderLibExercises(){
-  const exercises=DB.library.exercises;
+  const exercises=DB.library.exercises.filter(le=>libInstrumentFilter==='all'||le.instrument===libInstrumentFilter||le.instrument==='Both');
   return `
   <input class="search-input" id="lib-ex-search" placeholder="Search exercises by name or tag…" oninput="renderLibraryPanel()">
   ${(() => {
@@ -1647,12 +1683,14 @@ function openModal(type, extra){
   if(type==='student'){
     html+=`<div class="field"><label>Name</label><input id="m-name" placeholder="Full name"></div>
     <div class="field"><label>Level</label><select id="m-level"><option>Beginner</option><option>Intermediate</option><option>Advanced</option><option>Professional</option></select></div>
+    <div class="field"><label>Instrument</label><select id="m-instrument"><option value="Voice">🎤 Voice</option><option value="Keys">🎹 Keys</option></select></div>
     <div class="field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="m-private" style="width:auto;"> Private studio student</label></div>
     <div class="field"><label>Initial goals (one per line)</label><textarea id="m-goals" placeholder="Develop mix voice&#10;Extend range to C5"></textarea></div>`;
   } else if(type==='editstudent'){
     const s=getActive(); if(!s) return;
     html+=`<div class="field"><label>Name</label><input id="m-name" value="${esc(s.name)}"></div>
     <div class="field"><label>Level</label><select id="m-level"><option${s.level==='Beginner'?' selected':''}>Beginner</option><option${s.level==='Intermediate'?' selected':''}>Intermediate</option><option${s.level==='Advanced'?' selected':''}>Advanced</option><option${s.level==='Professional'?' selected':''}>Professional</option></select></div>
+    <div class="field"><label>Instrument</label><select id="m-instrument"><option value="Voice"${(s.instrument||'Voice')==='Voice'?' selected':''}>🎤 Voice</option><option value="Keys"${s.instrument==='Keys'?' selected':''}>🎹 Keys</option></select></div>
     <div class="field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="m-private" style="width:auto;"${s.isPrivate?' checked':''}> Private studio student</label></div>
     <div class="section-label" style="margin-top:4px;">Goals</div>
     ${s.goals.map((g,gi)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="flex:1;font-size:13px;">${esc(g)}</span><button type="button" class="icon-btn" style="font-size:11px;padding:2px 7px;" onclick="deleteGoal(${gi});closeModal();openModal('editstudent');">✕</button></div>`).join('')}
@@ -1677,11 +1715,13 @@ function openModal(type, extra){
     html+=`<div class="field"><label>Song title</label><input id="m-title" placeholder="e.g. Defying Gravity"></div>
     <div class="field"><label>Composer / show</label><input id="m-composer" placeholder="e.g. Schwartz / Wicked"></div>
     <div class="field"><label>Key</label><input id="m-key" placeholder="e.g. Bb"></div>
+    <div class="field"><label>Instrument</label><select id="m-instrument"><option value="Voice">🎤 Voice</option><option value="Keys">🎹 Keys</option><option value="Both">Both</option></select></div>
     <div class="field"><label>Tags (comma separated)</label><input id="m-tags" placeholder="belt, passaggio, mix, musical-theatre"></div>
     <div class="field"><label>What's it good for?</label><textarea id="m-notes" placeholder="Notes on what vocal challenges this song addresses..."></textarea></div>`;
   } else if(type==='libexercise'){
     html+=`<div class="field"><label>Exercise name</label><input id="m-name" placeholder="e.g. Lip trill scales"></div>
     <div class="field"><label>Pattern / instructions</label><input id="m-pattern" placeholder="e.g. 1-2-3-4-5-4-3-2-1"></div>
+    <div class="field"><label>Instrument</label><select id="m-instrument"><option value="Voice">🎤 Voice</option><option value="Keys">🎹 Keys</option><option value="Both">Both</option></select></div>
     <div class="field"><label>Tags (comma separated)</label><input id="m-tags" placeholder="warm-up, breath, passaggio, registration"></div>
     <div class="field"><label>What does it do / when to use it?</label><textarea id="m-notes" placeholder="Describe the purpose and best use cases..."></textarea></div>`;
   } else if(type==='newcurriculum'||type==='editcurriculum'){
@@ -1725,17 +1765,17 @@ function submitModal(){
   if(type==='student'){
     const name=v('m-name');if(!name)return;
     const isPrivate=document.getElementById('m-private')?.checked||false;
-    DB.students.push({id:Date.now(),name,level:v('m-level'),colorIdx:DB.students.length,isPrivate,goals:v('m-goals').split('\n').map(g=>g.trim()).filter(Boolean),songs:[],struggles:[],exercises:[],sessionNotes:[],chatHistory:[],lessonPlan:null});
+    DB.students.push({id:Date.now(),name,level:v('m-level'),instrument:v('m-instrument')||'Voice',colorIdx:DB.students.length,isPrivate,goals:v('m-goals').split('\n').map(g=>g.trim()).filter(Boolean),songs:[],struggles:[],exercises:[],sessionNotes:[],chatHistory:[],lessonPlan:null});
     DB.activeId=DB.students[DB.students.length-1].id; DB.activeTab='dashboard'; DB.view='student';
   } else if(type==='editstudent'){
     const s=getActive(); if(!s) return;
     const name=v('m-name'); if(!name) return;
-    s.name=name; s.level=v('m-level'); s.isPrivate=document.getElementById('m-private')?.checked||false;
+    s.name=name; s.level=v('m-level'); s.instrument=v('m-instrument')||s.instrument||'Voice'; s.isPrivate=document.getElementById('m-private')?.checked||false;
     const newGoal=v('m-newgoal'); if(newGoal) s.goals.push(newGoal);
   } else if(type==='libsong'){
-    DB.library.songs.push({id:uid(),title:v('m-title')||'Untitled',composer:v('m-composer'),key:v('m-key')||'?',tags:parseTags(v('m-tags')),notes:v('m-notes')});
+    DB.library.songs.push({id:uid(),title:v('m-title')||'Untitled',instrument:v('m-instrument')||'Voice',composer:v('m-composer'),key:v('m-key')||'?',tags:parseTags(v('m-tags')),notes:v('m-notes')});
   } else if(type==='libexercise'){
-    DB.library.exercises.push({id:uid(),name:v('m-name')||'Exercise',pattern:v('m-pattern'),tags:parseTags(v('m-tags')),notes:v('m-notes')});
+    DB.library.exercises.push({id:uid(),name:v('m-name')||'Exercise',instrument:v('m-instrument')||'Both',pattern:v('m-pattern'),tags:parseTags(v('m-tags')),notes:v('m-notes')});
   } else {
     const s=getActive();if(!s)return;
     if(type==='song') s.songs.push({title:v('m-title')||'Untitled',key:v('m-key')||'?',notes:v('m-notes'),tags:parseTags(v('m-tags')),archived:false});
