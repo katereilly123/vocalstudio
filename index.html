@@ -323,7 +323,7 @@
 <div id="lock-screen">
   <div class="lock-card">
     <div class="lock-icon">🎤</div>
-    <div class="lock-title">Voice Studio</div>
+    <div class="lock-title">Studio</div>
     <div class="lock-subtitle">Enter your password to continue</div>
     <input class="lock-input" type="password" id="lock-input" placeholder="Password" onkeydown="lockKeydown(event)" autofocus>
     <button class="lock-btn" onclick="checkPassword()">Unlock</button>
@@ -335,7 +335,7 @@
   <!-- SIDEBAR -->
   <div class="sidebar">
     <div class="sidebar-top">
-      <div class="app-title">🎤 Voice Studio</div>
+      <div class="app-title"> Studio</div>
     </div>
     <button class="gdrive-btn" id="gdrive-btn" onclick="toggleGDrive()">☁ Connect Google Drive</button>
     <div class="sidebar-section-label">Students</div>
@@ -1161,7 +1161,7 @@ Goals:
 • ${goals}
 Top struggles: ${struggles}
 
-Sent via Voice Studio Tracker`;
+Sent via Studio Tracker`;
 }
 
 async function sendNoteEmail(){
@@ -1194,7 +1194,7 @@ async function doSendEmail(s, noteText, noteDate, recipient, statusEl, noteIdx){
     const body=buildNoteEmailBody(s,noteText,noteDate);
     const result=await emailjs.send(svcId,tplId,{
       to_email: recipient,
-      from_name: 'Voice Studio Tracker',
+      from_name: 'Studio Tracker',
       reply_to: senderEmail,
       subject: `Session Notes — ${s.name} (${noteDate})`,
       message: body,
