@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Voice Studio Tracker</title>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   #lock-screen { position: fixed; inset: 0; background: #1a1a2e; display: flex; align-items: center; justify-content: center; z-index: 9999; flex-direction: column; gap: 0; }
@@ -573,31 +574,55 @@ function migrateDB(){
   DB.curricula.forEach(c=>{ if(!c.checklist)c.checklist=[]; if(!c.songTitles)c.songTitles=[]; if(!c.exerciseNames)c.exerciseNames=[]; if(!c.goalTexts)c.goalTexts=[]; if(!c.instrument)c.instrument='Voice'; });
 }
 
-function toggleGDrive(){ if(gdriveToken) disconnectGDrive(); else connectGDrive(); }
-function connectGDrive(){
-  const scope='https://www.googleapis.com/auth/drive.appdata';
-  const redirectUri=window.location.href.split('?')[0].split('#')[0];
-  const url=`https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(GDRIVE_CLIENT_ID)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&include_granted_scopes=true`;
-  const popup=window.open(url,'gdrive_auth','width=500,height=600');
-  const timer=setInterval(()=>{
-    try{
-      const hash=popup.location.hash;
-      if(hash&&hash.includes('access_token')){
-        clearInterval(timer); popup.close();
-        const params=new URLSearchParams(hash.slice(1));
-        gdriveToken=params.get('access_token');
-        updateGDriveUI();
-        loadFromDrive();
-      }
-    }catch(e){}
-    if(popup.closed) clearInterval(timer);
-  },500);
+let _tokenClient=null;
+const GDRIVE_SCOPE='https://www.googleapis.com/auth/drive.appdata';
+
+function initTokenClient(){
+  if(_tokenClient||!window.google?.accounts?.oauth2) return;
+  _tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id: GDRIVE_CLIENT_ID,
+    scope: GDRIVE_SCOPE,
+    callback: (resp)=>{
+      if(resp.error){ console.warn('Drive auth:',resp.error); return; }
+      gdriveToken=resp.access_token;
+      localStorage.setItem('vstdb_gdrive','1');
+      updateGDriveUI();
+      loadFromDrive();
+    }
+  });
 }
-function disconnectGDrive(){ gdriveToken=null; updateGDriveUI(); }
+
+function toggleGDrive(){
+  if(gdriveToken){ disconnectGDrive(); }
+  else { connectGDrive(false); }
+}
+
+function connectGDrive(silent){
+  initTokenClient();
+  if(!_tokenClient){ alert('Google sign-in is still loading — try again in a moment.'); return; }
+  _tokenClient.requestAccessToken(silent?{prompt:''}:{prompt:'select_account'});
+}
+
+function disconnectGDrive(){
+  if(gdriveToken&&window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(gdriveToken,()=>{});
+  gdriveToken=null;
+  localStorage.removeItem('vstdb_gdrive');
+  updateGDriveUI();
+}
+
 function updateGDriveUI(){
   const btn=document.getElementById('gdrive-btn'); if(!btn) return;
   if(gdriveToken){ btn.className='gdrive-btn connected'; btn.textContent='✓ Drive connected'; }
   else { btn.className='gdrive-btn'; btn.textContent='☁ Connect Google Drive'; }
+}
+
+function autoReconnectDrive(){
+  if(localStorage.getItem('vstdb_gdrive')!=='1') return;
+  const attempt=(n)=>{
+    if(window.google?.accounts?.oauth2){ initTokenClient(); if(_tokenClient) _tokenClient.requestAccessToken({prompt:''}); }
+    else if(n>0) setTimeout(()=>attempt(n-1),600);
+  };
+  attempt(12);
 }
 async function findOrCreateDriveFile(){
   const listRes=await fetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D%22'+GDRIVE_FILENAME+'%22',{headers:{Authorization:'Bearer '+gdriveToken}});
@@ -1821,6 +1846,7 @@ const _et=loadApiKey('ejstpl'); if(_et) document.getElementById('ejs-template-id
 const _se=loadApiKey('senderemail'); if(_se) document.getElementById('sender-email').value=_se;
 renderSidebar();
 renderPanels();
+autoReconnectDrive();
 </script>
 </body>
 </html>
