@@ -1375,59 +1375,68 @@ function renderLibraryPanel(){
     <span class="filter-chip ${libInstrumentFilter==='Voice'?'active':''}" onclick="setLibFilter('Voice')">🎤 Voice</span>
     <span class="filter-chip ${libInstrumentFilter==='Keys'?'keys-active':''}" onclick="setLibFilter('Keys')">🎹 Keys</span>
   </div>
-  ${libSubtab==='songs'?renderLibSongs():renderLibExercises()}`;
+  <input class="search-input" id="lib-search" placeholder="Search by title, name or tag…" oninput="renderLibList()">
+  <div id="lib-list"></div>`;
+  renderLibList();
 }
 function setLibSubtab(t){libSubtab=t;renderLibraryPanel();}
 function setLibFilter(f){libInstrumentFilter=f;renderLibraryPanel();}
 
+function renderLibList(){
+  const el=document.getElementById('lib-list'); if(!el) return;
+  el.innerHTML=libSubtab==='songs'?renderLibSongs():renderLibExercises();
+}
+
 function renderLibSongs(){
-  const songs=DB.library.songs.filter(ls=>libInstrumentFilter==='all'||ls.instrument===libInstrumentFilter||!ls.instrument);
-  return `
-  <input class="search-input" id="lib-song-search" placeholder="Search songs by title or tag…" oninput="renderLibraryPanel()">
-  ${(() => {
-    const q=(document.getElementById('lib-song-search')?.value||'').toLowerCase();
-    const filtered=songs.filter(s=>!q||s.title.toLowerCase().includes(q)||s.tags.some(t=>t.includes(q)));
-    return filtered.length?filtered.map((ls,i)=>`<div class="lib-card">
+  const q=(document.getElementById('lib-search')?.value||'').toLowerCase();
+  const songs=DB.library.songs.filter(ls=>{
+    const instrMatch=libInstrumentFilter==='all'||ls.instrument===libInstrumentFilter||!ls.instrument;
+    return instrMatch&&(!q||ls.title.toLowerCase().includes(q)||(ls.tags||[]).some(t=>t.includes(q))||(ls.composer||'').toLowerCase().includes(q));
+  });
+  return (songs.length?songs.map((ls)=>{
+    const idx=DB.library.songs.indexOf(ls);
+    return `<div class="lib-card">
       <div class="card-row">
         <div>
-          <div class="lib-card-title">${esc(ls.title)}</div>
-          <div class="lib-card-meta">Key ${esc(ls.key)}${ls.composer?' · '+esc(ls.composer):''}</div>
-          <div style="margin-top:5px;">${(ls.tags||[]).map((t,ti)=>`<span class="hashtag">#${esc(t)} <span style="cursor:pointer;margin-left:2px;" onclick="removeLibSongTag(${i},${ti})">×</span></span>`).join('')}</div>
+          <div class="lib-card-title">${esc(ls.title)} ${ls.instrument==='Keys'?'<span class="instrument-badge keys">Keys</span>':'<span class="instrument-badge voice">Voice</span>'}</div>
+          <div class="lib-card-meta">Key ${esc(ls.key)}${ls.composer?' · '+esc(ls.composer):''}${ls.artist?' · '+esc(ls.artist):''}</div>
+          <div style="margin-top:5px;">${(ls.tags||[]).map((t,ti)=>`<span class="hashtag">#${esc(t)} <span style="cursor:pointer;margin-left:2px;" onclick="removeLibSongTag(${idx},${ti})">×</span></span>`).join('')}</div>
         </div>
-        <button class="icon-btn" onclick="deleteLibSong(${songs.indexOf(ls)})">🗑</button>
+        <button class="icon-btn" onclick="deleteLibSong(${idx})">🗑</button>
       </div>
       ${ls.notes?`<div class="lib-card-notes">${esc(ls.notes)}</div>`:''}
       <div class="hashtag-input-wrap" style="margin-top:8px;">
-        <input class="hashtag-input" placeholder="+ tag" onkeydown="addLibSongTagKey(event,${songs.indexOf(ls)},this)">
+        <input class="hashtag-input" placeholder="+ tag" onkeydown="addLibSongTagKey(event,${idx},this)">
       </div>
-    </div>`):'<div class="empty-state">No songs in library yet.</div>';
-  })()}
-  <button class="add-row-btn" onclick="openModal('libsong')" style="margin-top:8px;">+ Add song to library</button>`;
+    </div>`;
+  }).join(''):'<div class="empty-state">No songs found.</div>')
+  +'<button class="add-row-btn" onclick="openModal(\'libsong\')" style="margin-top:8px;">+ Add song to library</button>';
 }
 
 function renderLibExercises(){
-  const exercises=DB.library.exercises.filter(le=>libInstrumentFilter==='all'||le.instrument===libInstrumentFilter||le.instrument==='Both');
-  return `
-  <input class="search-input" id="lib-ex-search" placeholder="Search exercises by name or tag…" oninput="renderLibraryPanel()">
-  ${(() => {
-    const q=(document.getElementById('lib-ex-search')?.value||'').toLowerCase();
-    const filtered=exercises.filter(e=>!q||e.name.toLowerCase().includes(q)||e.tags.some(t=>t.includes(q))||e.notes.toLowerCase().includes(q));
-    return filtered.length?filtered.map((le,i)=>`<div class="lib-card">
+  const q=(document.getElementById('lib-search')?.value||'').toLowerCase();
+  const exercises=DB.library.exercises.filter(le=>{
+    const instrMatch=libInstrumentFilter==='all'||le.instrument===libInstrumentFilter||le.instrument==='Both';
+    return instrMatch&&(!q||le.name.toLowerCase().includes(q)||(le.tags||[]).some(t=>t.includes(q))||(le.notes||'').toLowerCase().includes(q));
+  });
+  return (exercises.length?exercises.map((le)=>{
+    const idx=DB.library.exercises.indexOf(le);
+    return `<div class="lib-card">
       <div class="card-row">
         <div>
-          <div class="lib-card-title">${esc(le.name)}</div>
+          <div class="lib-card-title">${esc(le.name)} ${le.instrument==='Keys'?'<span class="instrument-badge keys">Keys</span>':le.instrument==='Both'?'<span class="instrument-badge" style="background:var(--gray-bg);color:var(--gray);">Both</span>':'<span class="instrument-badge voice">Voice</span>'}</div>
           <div class="lib-card-meta">${esc(le.pattern)}</div>
-          <div style="margin-top:5px;">${(le.tags||[]).map((t,ti)=>`<span class="hashtag amber">#${esc(t)} <span style="cursor:pointer;margin-left:2px;" onclick="removeLibExTag(${exercises.indexOf(le)},${ti})">×</span></span>`).join('')}</div>
+          <div style="margin-top:5px;">${(le.tags||[]).map((t,ti)=>`<span class="hashtag amber">#${esc(t)} <span style="cursor:pointer;margin-left:2px;" onclick="removeLibExTag(${idx},${ti})">×</span></span>`).join('')}</div>
         </div>
-        <button class="icon-btn" onclick="deleteLibEx(${exercises.indexOf(le)})">🗑</button>
+        <button class="icon-btn" onclick="deleteLibEx(${idx})">🗑</button>
       </div>
       ${le.notes?`<div class="lib-card-notes">${esc(le.notes)}</div>`:''}
       <div class="hashtag-input-wrap" style="margin-top:8px;">
-        <input class="hashtag-input" placeholder="+ tag" onkeydown="addLibExTagKey(event,${exercises.indexOf(le)},this)">
+        <input class="hashtag-input" placeholder="+ tag" onkeydown="addLibExTagKey(event,${idx},this)">
       </div>
-    </div>`):'<div class="empty-state">No exercises in library yet.</div>';
-  })()}
-  <button class="add-row-btn" onclick="openModal('libexercise')" style="margin-top:8px;">+ Add exercise to library</button>`;
+    </div>`;
+  }).join(''):'<div class="empty-state">No exercises found.</div>')
+  +'<button class="add-row-btn" onclick="openModal(\'libexercise\')" style="margin-top:8px;">+ Add exercise to library</button>';
 }
 
 function addLibSongTagKey(e,idx,input){ if(e.key==='Enter'||e.key===','){ e.preventDefault(); const val=input.value.trim().replace(/^#/,'').replace(/\s+/g,'-').toLowerCase(); if(val){ if(!DB.library.songs[idx].tags) DB.library.songs[idx].tags=[]; if(!DB.library.songs[idx].tags.includes(val)) DB.library.songs[idx].tags.push(val); save(); renderLibraryPanel(); } } }
